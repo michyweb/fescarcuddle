@@ -1,0 +1,18 @@
+x1-x.com, *.x1-x.com {
+        log
+
+        tls /etc/letsencrypt/live/x1-x.com/fullchain.pem /etc/letsencrypt/live/x1-x.com/privkey.pem
+
+        header {
+                -Server
+                +X-Robots-Tag "noindex, nofollow, nosnippet, noarchive"
+                +X-Content-Type-Options "nosniff"
+        }
+
+        reverse_proxy 127.0.0.1:58082 {
+                header_up Host {host}
+                header_up X-Real-IP {remote_host}
+        }
+}
+
+# sudo docker run -d   --name caddy   --network=host   -v ./Caddyfile:/etc/caddy/Caddyfile   -v /etc/letsencrypt:/etc/letsencrypt:ro   -v caddy_data:/data   -v caddy_config:/config   caddy
