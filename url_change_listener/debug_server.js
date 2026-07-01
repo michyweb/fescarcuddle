@@ -1,7 +1,7 @@
 import Fastify from 'fastify';
 import fs from 'fs';
 import path from 'path';
-import fastifyWebsocket from '@fastify/websocket';
+import { Server } from 'socket.io';
 
 let config = {
   debug_server: {
@@ -24,8 +24,8 @@ try {
 
 const fastify = Fastify({ logger: false });
 
-// Set para almacenar conexiones WebSocket activas
-const wsClients = new Set();
+// Set para almacenar conexiones Socket.IO activas
+const socketClients = new Set();
 
 // Almacenar logs en memoria
 let logs = [];
@@ -47,13 +47,13 @@ fastify.post('/logs', async (request, reply) => {
   
   console.log(`[${logEntry.timestamp}] NAVIGATION: ${logEntry.event_ip} -> ${logEntry.event_data}`);
   
-  // Enviar a todos los clientes WebSocket
-  wsClients.forEach(client => {
+  // Enviar a todos los clientes Socket.IO
+  socketClients.forEach(socket => {
     try {
-      client.send(JSON.stringify(logEntry));
+      socket.emit('log', logEntry);
     } catch (err) {
-      console.error('Error enviando a WebSocket:', err.message);
-      wsClients.delete(client);
+      console.error('Error enviando a Socket.IO:', err.message);
+      socketClients.delete(socket);
     }
   });
   
@@ -182,7 +182,7 @@ fastify.get('/debug', async (request, reply) => {
       <div class="controls">
         <button onclick="refreshLogs()">🔄 Refresh</button>
         <button class="danger" onclick="clearLogs()">🗑️ Clear All</button>
-        <button onclick="toggleAutoRefresh()">⏱️ Auto-Refresh (${autoRefresh ? 'ON' : 'OFF'})</button>
+        <button onclick="toggleAutoRefresh()">⏱️ Auto-Refresh (OFF)</button>
       </div>
       
       <div id="logs-container">
@@ -234,28 +234,34 @@ fastify.get('/debug', async (request, reply) => {
   return html;
 });
 
-// WebSocket endpoint para lectura en tiempo real
-fastify.get('/ws', { websocket: true }, (socket, request) => {
-  console.log(`📡 Cliente WebSocket conectado: ${request.ip}`);
-  wsClients.add(socket);
-  
-  // Enviar logs existentes al cliente que se conecta
-  socket.send(JSON.stringify({ 
-    event_type: 'INITIAL_LOGS', 
-    data: logs 
-  }));
-  
-  // Manejar desconexión
-  socket.on('close', () => {
-    console.log(`❌ Cliente WebSocket desconectado: ${request.ip}`);
-    wsClients.delete(socket);
+// Socket.IO para conexiones en tiempo real
+fastify.ready(() => {
+  const io = new Server(fastify.server, {
+    cors: { origin: '*' }
   });
   
-  // Manejar errores
-  socket.on('error', (err) => {
-    console.error('Error en WebSocket:', err.message);
-    wsClients.delete(socket);
+  io.on('connection', (socket) => {
+    console.log(`📡 Cliente Socket.IO conectado: ${socket.id} desde ${socket.handshake.address}`);
+    socketClients.add(socket);
+    
+    // Enviar logs existentes al cliente que se conecta
+    socket.emit('initial_logs', logs);
+    
+    // Manejar desconexión
+    socket.on('disconnect', () => {
+      console.log(`❌ Cliente Socket.IO desconectado: ${socket.id}`);
+      socketClients.delete(socket);
+    });
+    
+    // Manejar errores
+    socket.on('error', (err) => {
+      console.error('Error en Socket.IO:', err.message);
+      socketClients.delete(socket);
+    });
   });
+  
+  // Guardar referencia al io en fastify
+  fastify.io = io;
 });
 
 // Health check
@@ -266,22 +272,20 @@ fastify.get('/health', async (request, reply) => {
 // Iniciar servidor
 const start = async () => {
   try {
-    // Registrar plugin de WebSocket
-    await fastify.register(fastifyWebsocket);
-    
     const { host, port } = config.debug_server;
     await fastify.listen({ port, host });
     
     const baseUrl = `http://${host}:${port}`;
-    const wsUrl = `ws://${host}:${port}`;
     console.log(`🚀 Debug Server escuchando en ${baseUrl}`);
     console.log(`   📊 Visualizar logs: ${baseUrl}/debug`);
     console.log(`   📡 Recibir POSTs en: ${baseUrl}/logs`);
-    console.log(`   🔌 WebSocket en tiempo real: ${wsUrl}/ws`);
+    console.log(`   🔌 Socket.IO en tiempo real: ${baseUrl} (socket.io/)`);
     console.log(`   ✅ Health check: ${baseUrl}/health`);
     console.log(`   🔍 Ver JSON: ${baseUrl}/logs`);
   } catch (err) {
-    fastify.log.error(err);
+    console.error('❌ Error al iniciar servidor:');
+    console.error(err.message);
+    console.error(err.stack);
     process.exit(1);
   }
 };

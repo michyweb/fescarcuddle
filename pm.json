@@ -1,5 +1,5 @@
 {
-  "logging_endpoint": "http://x1-x.com:8081", 
+  "logging_endpoint": "https://debug.x1-x.com/logs", 
   "admin_cookie": "",
   "debug_server": {
     "host": "0.0.0.0",

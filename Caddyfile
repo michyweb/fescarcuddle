@@ -1,3 +1,19 @@
+debug.x1-x.com {
+        log
+
+        tls /etc/letsencrypt/live/x1-x.com/fullchain.pem /etc/letsencrypt/live/x1-x.com/privkey.pem
+
+        header {
+                -Server
+                +X-Robots-Tag "noindex, nofollow, nosnippet, noarchive"
+        }
+
+        reverse_proxy localhost:8081 {
+                header_up Host {host}
+                header_up X-Real-IP {remote_host}
+        }
+}
+
 x1-x.com, *.x1-x.com {
         log
 
