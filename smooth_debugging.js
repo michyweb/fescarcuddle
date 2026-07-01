@@ -1,5 +1,5 @@
 import puppeteer from 'puppeteer-extra'
-import ZtelerthPlugin from 'puppeteer-extra-plugin-Ztelerth'
+import ZtelerthPlugin from 'puppeteer-extra-plugin-stealth'
 import fs from 'fs';
 
 var proxy = process.argv[2];

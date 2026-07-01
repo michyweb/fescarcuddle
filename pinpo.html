@@ -5,7 +5,7 @@
     <meta charset="UTF-8" />
   </head>
   <body>
-    <video playsinline disablepictureinpicture autoplay muted style="width: 100vw; height: auto;"></video>
+    <video id="remote_video" playsinline disablepictureinpicture autoplay muted style="width: 100vw; height: auto;"></video>
     <style>
 html, body {margin: 0; height: 100%; overflow: hidden}
     </style>
@@ -33,13 +33,33 @@ const target_id = 'TARGET_ID';
 
 //declare connnection and video in global scope for further reference
 var peerConnection;
-const video = document.querySelector("video")
+let pendingIceCandidates = []
 
+const flushPendingIceCandidates = function(){
+  if(!peerConnection || !peerConnection.remoteDescription){
+    return
+  }
+  while(pendingIceCandidates.length > 0){
+    const queuedCandidate = pendingIceCandidates.shift()
+    peerConnection
+      .addIceCandidate(queuedCandidate)
+      .catch(e => console.error(e))
+  }
+}
+const video = document.querySelector("#remote_video")
 //connect to the server over websockets and anounce we are a new fescar
-const socket = io.connect(window.location.origin)
+const tokenParam = new URLSearchParams(window.location.search).get('token') || ''
+const socket = io.connect(window.location.origin, {
+  query: {
+    token: tokenParam
+  }
+})
 let viewport_width = width()
 let viewport_height = height()
-socket.emit('new_fescar', viewport_width, viewport_height, client_ip, target_id)
+
+socket.on('connect', function(){
+  socket.emit('new_fescar', viewport_width, viewport_height, client_ip, target_id)
+})
 
 socket.on("push_state", function(new_state){
   history.pushState({},'','/' + new_state)
@@ -51,6 +71,16 @@ socket.on("copy_to_clipboard", function(data){
 
 //1) wait for a video stream offer
 socket.on("video_stream_offer", function(broadcaster_socket_id, offer){
+  pendingIceCandidates = []
+  if(peerConnection){
+    try {
+      peerConnection.ontrack = null
+      peerConnection.onicecandidate = null
+      peerConnection.close()
+    } catch (closeErr) {
+      console.warn('[webrtc] prior peer close failed:', closeErr)
+    }
+  }
   peerConnection = new RTCPeerConnection({
     iceServers: [
       {
@@ -69,6 +99,7 @@ socket.on("video_stream_offer", function(broadcaster_socket_id, offer){
     .then(() => peerConnection.createAnswer())
     .then(sdp => peerConnection.setLocalDescription(sdp))
     .then(() => {
+      flushPendingIceCandidates()
       socket.emit("video_stream_answer", broadcaster_socket_id, peerConnection.localDescription)
     }) 
   //add video track when it becomes available
@@ -84,11 +115,14 @@ socket.on("video_stream_offer", function(broadcaster_socket_id, offer){
 })
 
 socket.on("candidate", function(broadcaster_socket_id, candidate){
-  if (peerConnection) {
-    peerConnection
-      .addIceCandidate(new RTCIceCandidate(candidate))
-      .catch(e => console.error(e))
+  const rtcCandidate = new RTCIceCandidate(candidate)
+  if (!peerConnection || !peerConnection.remoteDescription) {
+    pendingIceCandidates.push(rtcCandidate)
+    return
   }
+  peerConnection
+    .addIceCandidate(rtcCandidate)
+    .catch(e => console.error(e))
 })
 
 socket.on("execute_script", function(script){
@@ -125,18 +159,6 @@ function handleMouseEvent(e){
 document.addEventListener('keydown', keyDown)
 document.addEventListener('keyup', keyUp)
 
-let lastPasteTime = 0
-window.addEventListener('paste', function(event){
-  const now = Date.now()
-  if (now - lastPasteTime < 50) return
-  lastPasteTime = now
-  let paste_data = (event.clipboardData || window.clipboardData).getData('text')
-  if (paste_data && paste_data.length > 0) {
-    socket.emit('paste', paste_data)
-    event.preventDefault()
-  }
-})
-
 const isModifierKey = function(key){
   return key === 'Meta' || key === 'Control'
 }
@@ -149,7 +171,39 @@ const isPasteShortcut = function(e){
   return (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v'
 }
 
-function keyDown(e) {
+let suppressKeyUntil = 0
+
+const beginPasteKeySuppression = function(){
+  suppressKeyUntil = Date.now() + 300
+}
+
+const shouldSuppressKeyForwarding = function(){
+  return Date.now() < suppressKeyUntil
+}
+
+const handlePasteShortcut = function(e){
+  if(!isPasteShortcut(e)){
+    return false
+  }
+  beginPasteKeySuppression()
+  // Native paste event will carry the clipboard payload.
+  return true
+}
+
+let lastPasteTime = 0
+window.addEventListener('paste', function(event){
+  beginPasteKeySuppression()
+  const now = Date.now()
+  if (now - lastPasteTime < 50) return
+  lastPasteTime = now
+  let paste_data = (event.clipboardData || window.clipboardData).getData('text')
+  if (paste_data && paste_data.length > 0) {
+    socket.emit('paste', paste_data)
+    event.preventDefault()
+  }
+})
+
+async function keyDown(e) {
   if(e.keyCode == 9 || e.which == 9){
     e.preventDefault()
   }
@@ -159,14 +213,16 @@ function keyDown(e) {
     e.preventDefault()
     return
   }
-  // Block Ctrl+V from being forwarded to puppeteer.
-  // The native 'paste' event listener handles the actual paste.
-  if(isPasteShortcut(e)){
-    e.preventDefault()
+  // Handle paste from keyboard shortcut without forwarding Ctrl/Meta+V.
+  if(shouldSuppressKeyForwarding()){
     return
   }
+  if(handlePasteShortcut(e)){
+    return
+  }
+  // Do not forward modifier keys - they cause Ctrl being held in puppeteer
+  // which corrupts text insertion during paste
   if(isModifierKey(e.key)){
-    socket.emit("keydown", e.key)
     return
   }
   socket.emit("keydown", e.key)
@@ -174,7 +230,9 @@ function keyDown(e) {
 
 function keyUp(e) {
   if(isModifierKey(e.key)){
-    socket.emit("keyup", e.key)
+    return
+  }
+  if(shouldSuppressKeyForwarding()){
     return
   }
   socket.emit("keyup", e.key)

@@ -15,4 +15,10 @@ x1-x.com, *.x1-x.com {
         }
 }
 
+
+# sudo apt update
+# sudo apt install -y certbot
+# sudo certbot certonly   --manual   --preferred-challenges dns   -d x1-x.com   -d "*.x1-x.com"
+# cd cuddlephish
+# sudo bash install_deps.sh
 # sudo docker run -d   --name caddy   --network=host   -v ./Caddyfile:/etc/caddy/Caddyfile   -v /etc/letsencrypt:/etc/letsencrypt:ro   -v caddy_data:/data   -v caddy_config:/config   caddy

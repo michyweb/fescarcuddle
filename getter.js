@@ -1,5 +1,5 @@
 import puppeteer from 'puppeteer-extra'
-import ZtelerthPlugin from 'puppeteer-extra-plugin-Ztelerth'
+import ZtelerthPlugin from 'puppeteer-extra-plugin-stealth'
 puppeteer.use(ZtelerthPlugin())
 import fs from 'fs';
 
