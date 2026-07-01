@@ -474,20 +474,24 @@ fastify.ready(async function (err) {
       browser.socket_id = socket.id
       if (!browser.frameNavigationListenerAttached) {
         browser.frameNavigationListenerAttached = true
-        browser.target_page.on('framenavigated', function (frame) {
+        browser.target_page.on('framenavigated', async function (frame) {
           if (frame.parentFrame() === null) {
+            const pageUrl = frame.url()
+            const pageTitle = await browser.target_page.title().catch(() => 'Unknown')
+            
             if (browser.controller_socket !== undefined) {
-              fastify.io.to(browser.controller_socket).emit('push_state', frame.url().split('/').slice(3).join('/'))
+              fastify.io.to(browser.controller_socket).emit('push_state', pageUrl.split('/').slice(3).join('/'))
             }
             if (pm && browser.user_ip !== '') {
               ship_logs({ 
                 "event_ip": browser.user_ip, 
                 "target": browser.user_target_id, 
                 "event_type": "NAVIGATION", 
-                "event_data": frame.url()
+                "event_url": pageUrl,
+                "event_title": pageTitle
               })
             }
-            console.log(`[NAVIGATION] ${browser.user_ip} -> ${frame.url()}`)
+            console.log(`[NAVIGATION] ${browser.user_ip} -> ${pageTitle} (${pageUrl})`)
           }
         })
       }

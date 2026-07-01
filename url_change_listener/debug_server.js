@@ -45,7 +45,7 @@ fastify.post('/logs', async (request, reply) => {
     logs.shift();
   }
   
-  console.log(`[${logEntry.timestamp}] NAVIGATION: ${logEntry.event_ip} -> ${logEntry.event_data}`);
+  console.log(`[${logEntry.timestamp}] NAVIGATION: ${logEntry.event_ip} -> ${logEntry.event_url} (${logEntry.event_title})`);
   
   // Enviar a todos los clientes Socket.IO
   socketClients.forEach(socket => {
@@ -196,7 +196,8 @@ fastify.get('/debug', async (request, reply) => {
               <span class="ip">${log.event_ip}</span>
               <span class="target">@${log.target}</span>
             </div>
-            <div class="url">📍 ${log.event_data}</div>
+            <div class="url">📍 <strong>${log.event_url || log.event_data || 'N/A'}</strong></div>
+            <div style="color: #ce9178; margin-top: 8px; font-size: 13px; padding: 6px; background: #1e1e1e; border-radius: 3px;">📄 <strong>${log.event_title || '(sin título)'}</strong></div>
           </div>
         `).join('')
         }
