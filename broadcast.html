@@ -39,9 +39,16 @@ const flushQueuedCandidates = async function(viewer_socket_id){
 //const socket = io()
 const urlParams = new URLSearchParams(window.location.search);
 const browser_id = urlParams.get('id');
+let session_id = null;
 //create a socket and let the server know we are a new headless browser
 const socket = io.connect('ws://localhost:58082', {reconnectionDelayMax: 100000, query: {browserId: browser_id}})
 socket.emit('new_broadcast', browser_id)
+
+// Receive session_id from server
+socket.on('set_session_id', function(sid) {
+  session_id = sid;
+  console.log('Session ID set:', session_id);
+})
 
 const thumbnail = document.querySelector("video")
 const canvas = window.canvas = document.querySelector('canvas')

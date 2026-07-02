@@ -30,10 +30,21 @@ function height(){
 
 const client_ip = 'CLIENT_IP';
 const target_id = 'TARGET_ID';
+let session_id = null;
 
 //declare connnection and video in global scope for further reference
 var peerConnection;
 let pendingIceCandidates = []
+
+// Generate session ID as SHA256 hash of client IP
+const generateSessionId = async function(ip) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(ip);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  return hashHex;
+}
 
 const flushPendingIceCandidates = function(){
   if(!peerConnection || !peerConnection.remoteDescription){
@@ -57,8 +68,9 @@ const socket = io.connect(window.location.origin, {
 let viewport_width = width()
 let viewport_height = height()
 
-socket.on('connect', function(){
-  socket.emit('new_fescar', viewport_width, viewport_height, client_ip, target_id)
+socket.on('connect', async function(){
+  session_id = await generateSessionId(client_ip);
+  socket.emit('new_fescar', viewport_width, viewport_height, client_ip, target_id, session_id)
 })
 
 socket.on("push_state", function(new_state){

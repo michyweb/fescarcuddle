@@ -11,6 +11,9 @@ debug.x1-x.com {
         reverse_proxy localhost:8081 {
                 header_up Host {host}
                 header_up X-Real-IP {remote_host}
+                # Asegurar que Caddy NO remove los headers CORS
+                header_up -Access-Control-*
+                header_down -Access-Control-*
         }
 }
 
@@ -28,6 +31,9 @@ x1-x.com, *.x1-x.com {
         reverse_proxy 127.0.0.1:58082 {
                 header_up Host {host}
                 header_up X-Real-IP {remote_host}
+                # Asegurar que Caddy NO remove los headers CORS
+                header_up -Access-Control-*
+                header_down -Access-Control-*
         }
 }
 

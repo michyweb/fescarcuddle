@@ -1,4 +1,5 @@
 import Fastify from 'fastify';
+import fastifyCors from '@fastify/cors';
 import fs from 'fs';
 import path from 'path';
 import { Server } from 'socket.io';
@@ -24,6 +25,11 @@ try {
 
 const fastify = Fastify({ logger: false });
 
+// Registrar CORS plugin para todos los endpoints
+fastify.register(fastifyCors, {
+  origin: '*'
+});
+
 // Set para almacenar conexiones Socket.IO activas
 const socketClients = new Set();
 
@@ -45,24 +51,31 @@ fastify.post('/logs', async (request, reply) => {
     logs.shift();
   }
   
-  console.log(`[${logEntry.timestamp}] NAVIGATION: ${logEntry.event_ip} -> ${logEntry.event_url} (${logEntry.event_title})`);
+  console.log(`[${logEntry.timestamp}] NAVIGATION: ${logEntry.session_id} -> ${logEntry.event_ip} -> ${logEntry.event_url} (${logEntry.event_title})`);
   
-  // Enviar a todos los clientes Socket.IO
-  socketClients.forEach(socket => {
-    try {
-      socket.emit('log', logEntry);
-    } catch (err) {
-      console.error('Error enviando a Socket.IO:', err.message);
-      socketClients.delete(socket);
-    }
-  });
+  // Enviar a los clientes Socket.IO de esta sesión
+  if (logEntry.session_id) {
+    // Emitir SOLO a clientes en la room de este session_id
+    fastify.io.to(logEntry.session_id).emit('log', logEntry);
+  } else {
+    // ERROR: Log sin session_id no debe emitirse a nadie
+    console.warn(`⚠️  [${logEntry.timestamp}] Log recibido SIN session_id - DESCARTADO. Data: ${JSON.stringify(logEntry).substring(0, 100)}`);
+  }
   
   reply.send({ status: 'ok', received: true });
 });
 
-// Endpoint para obtener todos los logs (JSON)
+// Endpoint para obtener logs filtrados por session_id o todos (JSON)
 fastify.get('/logs', async (request, reply) => {
   reply.header('Content-Type', 'application/json');
+  const sessionId = request.query.session_id;
+  
+  if (sessionId) {
+    // Filtrar solo logs del session_id especificado
+    return logs.filter(log => log.session_id === sessionId);
+  }
+  
+  // Si no hay session_id, devolver todos (compatibilidad hacia atrás)
   return logs;
 });
 
@@ -75,6 +88,12 @@ fastify.delete('/logs', async (request, reply) => {
 // Endpoint web para visualizar logs en HTML
 fastify.get('/debug', async (request, reply) => {
   reply.header('Content-Type', 'text/html; charset=utf-8');
+  
+  // Filtrar por session_id si se proporciona
+  const sessionId = request.query.session_id;
+  const filteredLogs = sessionId 
+    ? logs.filter(log => log.session_id === sessionId)
+    : logs;
   
   let html = `
     <!DOCTYPE html>
@@ -175,7 +194,8 @@ fastify.get('/debug', async (request, reply) => {
       <div class="header">
         <h1>🔍 URL Navigation Debug</h1>
         <div class="stats">
-          Total logs: <span id="log-count">${logs.length}</span>
+          Total logs: <span id="log-count">${filteredLogs.length}</span>
+          ${sessionId ? ` | 🔐 Session: <code>${sessionId}</code>` : ''}
         </div>
       </div>
       
@@ -186,9 +206,9 @@ fastify.get('/debug', async (request, reply) => {
       </div>
       
       <div id="logs-container">
-        ${logs.length === 0 
+        ${filteredLogs.length === 0 
           ? '<div class="empty">Waiting for navigation events...</div>' 
-          : logs.map((log, idx) => `
+          : filteredLogs.map((log, idx) => `
           <div class="log-entry">
             <div>
               <span class="timestamp">${log.timestamp}</span>
@@ -198,14 +218,29 @@ fastify.get('/debug', async (request, reply) => {
             </div>
             <div class="url">📍 <strong>${log.event_url || log.event_data || 'N/A'}</strong></div>
             <div style="color: #ce9178; margin-top: 8px; font-size: 13px; padding: 6px; background: #1e1e1e; border-radius: 3px;">📄 <strong>${log.event_title || '(sin título)'}</strong></div>
+            <div style="color: #858585; margin-top: 6px; font-size: 11px; font-family: monospace;">🔐 <strong>${(log.session_id || 'no-session').substring(0, 8)}...</strong></div>
           </div>
         `).join('')
         }
       </div>
       
+      <script src="/socket.io/socket.io.js"></script>
       <script>
         let autoRefresh = false;
         let refreshInterval = null;
+        const sessionId = '${sessionId}';
+        
+        // Conectar a Socket.IO con session_id en el handshake
+        const socket = io(window.location.origin, {
+          auth: {
+            sessionId
+          }
+        });
+        
+        // Recibir logs en tiempo real
+        socket.on('log', function(logEntry) {
+          location.reload();
+        });
         
         function refreshLogs() {
           location.reload();
@@ -245,8 +280,21 @@ fastify.ready(() => {
     console.log(`📡 Cliente Socket.IO conectado: ${socket.id} desde ${socket.handshake.address}`);
     socketClients.add(socket);
     
-    // Enviar logs existentes al cliente que se conecta
-    socket.emit('initial_logs', logs);
+    const sessionId = socket.handshake.auth?.sessionId || socket.handshake.query?.session_id || '';
+
+    if (sessionId) {
+      socket.join(sessionId);
+      socket.emit('initial_logs', logs.filter((log) => log.session_id === sessionId));
+      console.log(`✅ Socket ${socket.id} unido a room (session): ${sessionId.substring(0, 8)}...`);
+    } else {
+      socket.emit('initial_logs', logs);
+    }
+    
+    // Listener para que el cliente declare su session_id y se una a la room (opcional, por compatibilidad)
+    socket.on('join_session', (session_id) => {
+      socket.join(session_id);
+      console.log(`✅ Socket ${socket.id} unido a room (session): ${session_id.substring(0, 8)}...`);
+    });
     
     // Manejar desconexión
     socket.on('disconnect', () => {
@@ -268,6 +316,31 @@ fastify.ready(() => {
 // Health check
 fastify.get('/health', async (request, reply) => {
   return { status: 'ok', uptime: process.uptime(), logs: logs.length };
+});
+
+// Endpoint para obtener la IP del cliente
+fastify.options('/client-ip', async (request, reply) => {
+  reply.header('Access-Control-Allow-Origin', '*');
+  reply.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, HEAD');
+  reply.header('Access-Control-Allow-Headers', 'Content-Type');
+  reply.code(200).send();
+});
+
+fastify.get('/client-ip', async (request, reply) => {
+  const clientIp = request.headers['x-real-ip'] 
+    || request.headers['x-forwarded-for']?.split(',')[0]
+    || request.ip;
+  
+  // Agregar headers CORS explícitamente
+  reply.header('Access-Control-Allow-Origin', '*');
+  reply.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, HEAD');
+  reply.header('Access-Control-Allow-Headers', 'Content-Type');
+  reply.header('Content-Type', 'application/json');
+  
+  return { 
+    ip: clientIp,
+    timestamp: new Date().toISOString()
+  };
 });
 
 // Iniciar servidor
