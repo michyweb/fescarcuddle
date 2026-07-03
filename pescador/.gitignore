@@ -1,0 +1,5 @@
+# Configuración local
+config.json
+targets.json
+user_data/
+*.log

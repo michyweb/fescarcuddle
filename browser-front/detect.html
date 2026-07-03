@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detectando preferencias...</title>
+    <script>
+        // Detectar preferencia de color y redirigir
+        const isDarkMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const scheme = isDarkMode ? 'dark' : 'light';
+        
+        // Redirigir a la página con el esquema detectado
+        window.location.href = `/?scheme=${scheme}`;
+    </script>
+</head>
+<body>
+    <p>Detectando preferencias de color...</p>
+</body>
+</html>

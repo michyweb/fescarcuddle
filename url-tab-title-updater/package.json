@@ -1,0 +1,28 @@
+{
+  "name": "debug-server",
+  "version": "1.0.0",
+  "description": "Standalone navigation logging dashboard with multi-user session isolation via SHA256",
+  "main": "debug_server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node debug_server.js",
+    "dev": "node --watch debug_server.js"
+  },
+  "keywords": [
+    "logging",
+    "dashboard",
+    "session-isolation",
+    "websocket",
+    "navigation"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "fastify": "^3.24.1",
+    "@fastify/cors": "^11.2.0",
+    "socket.io": "^4.8.3"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}

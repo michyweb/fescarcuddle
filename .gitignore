@@ -1,6 +1,10 @@
-targets.json
-node_modules
+node_modules/
+*.log
+.DS_Store
+.env
+.env.local
 notes.txt
-user_data/
-package-lock.json
 !Ztelererjs_extension/manifest.json
+
+# Archivos de configuración (ignorar en todos los subdirectorios)
+**/user_data/

@@ -6,18 +6,26 @@ debug.x1-x.com {
         header {
                 -Server
                 +X-Robots-Tag "noindex, nofollow, nosnippet, noarchive"
+                # Permitir CORS desde iframes en otros orígenes
+                +Access-Control-Allow-Origin "*"
+                +Access-Control-Allow-Methods "GET, POST, OPTIONS"
+                +Access-Control-Allow-Headers "Content-Type, Authorization"
         }
 
+        # Manejar preflight requests
+        handle_path /OPTIONS* {
+                respond 204
+        }
+
+        # Debug Server (url-tab-title-updater)
         reverse_proxy localhost:8081 {
                 header_up Host {host}
                 header_up X-Real-IP {remote_host}
-                # Asegurar que Caddy NO remove los headers CORS
-                header_up -Access-Control-*
-                header_down -Access-Control-*
         }
 }
 
-x1-x.com, *.x1-x.com {
+# Subdominio para browser-front (detección dinámicas de OS y color scheme)
+x1-x.com {
         log
 
         tls /etc/letsencrypt/live/x1-x.com/fullchain.pem /etc/letsencrypt/live/x1-x.com/privkey.pem
@@ -28,12 +36,28 @@ x1-x.com, *.x1-x.com {
                 +X-Content-Type-Options "nosniff"
         }
 
-        reverse_proxy 127.0.0.1:58082 {
+        # Browser Front por defecto (detección dinámicas de SO y preferencias)
+        reverse_proxy localhost:8080 {
                 header_up Host {host}
                 header_up X-Real-IP {remote_host}
-                # Asegurar que Caddy NO remove los headers CORS
-                header_up -Access-Control-*
-                header_down -Access-Control-*
+        }
+}
+
+pescador.x1-x.com, *.pescador.x1-x.com {
+        log
+
+        tls /etc/letsencrypt/live/x1-x.com/fullchain.pem /etc/letsencrypt/live/x1-x.com/privkey.pem
+
+        header {
+                -Server
+                +X-Robots-Tag "noindex, nofollow, nosnippet, noarchive"
+                +X-Content-Type-Options "nosniff"
+        }
+
+        # Pescador - Aplicación principal
+        reverse_proxy localhost:58082 {
+                header_up Host {host}
+                header_up X-Real-IP {remote_host}
         }
 }
 

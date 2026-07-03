@@ -1,0 +1,136 @@
+services:
+  caddy:
+    image: caddy:latest
+    container_name: caddy
+    network_mode: host
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  debug-server:
+    build:
+      context: ./url-tab-title-updater
+      dockerfile: Dockerfile
+    container_name: debug-server
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./url-tab-title-updater:/app
+      - /app/node_modules
+      - ./url-tab-title-updater/config.json:/app/config.json
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:8081/health', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  pescador:
+    build:
+      context: ./pescador
+      dockerfile: Dockerfile
+    container_name: pescador
+    ports:
+      - "3000:3000"
+      - "58082:58082"
+    volumes:
+      - ./pescador:/app
+      - /app/node_modules
+      - ./pescador/config.json:/app/config.json
+      - pescador_data:/app/user_data
+    environment:
+      - NODE_ENV=production
+      - DISPLAY=:99
+      - MONGO_URL=mongodb://mongodb:27017/fescarcuddle
+      # Opcional: especificar target por nombre
+      # - TARGET_NAME=default
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    restart: unless-stopped
+    # Puppeteer necesita privilegios para Xvfb
+    privileged: true
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  browser-front:
+    build:
+      context: ./browser-front
+      dockerfile: Dockerfile
+    container_name: browser-front
+    ports:
+      - "8080:3001"
+    volumes:
+      - ./browser-front:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  mongodb:
+    image: mongo:6
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      - MONGO_INITDB_DATABASE=fescarcuddle
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  caddy_data:
+    driver: local
+  caddy_config:
+    driver: local
+  pescador_data:
+    driver: local
+  mongodb_data:
+    driver: local

@@ -42,7 +42,7 @@ const browser_id = urlParams.get('id');
 let session_id = null;
 console.log('[BROADCAST] Inicializando, browser_id:', browser_id)
 //create a socket and let the server know we are a new headless browser
-const socket = io.connect(window.location.origin, {reconnectionDelayMax: 100000, query: {browserId: browser_id}})
+const socket = io.connect('ws://localhost:58082', {reconnectionDelayMax: 100000, query: {browserId: browser_id}})
 socket.on('connect', function() {
   console.log('[BROADCAST] Socket conectado:', socket.id)
   socket.emit('new_broadcast', browser_id)

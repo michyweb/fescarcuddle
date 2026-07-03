@@ -11,19 +11,16 @@ let config = {
   }
 };
 
-// Leer config desde pm.json si existe
+// Leer config desde config.json si existe
 try {
-  const pmPath = path.join(process.cwd(), 'pm.json');
-  const pmData = JSON.parse(fs.readFileSync(pmPath, 'utf8'));
-  if (pmData.debug_server) {
-    config.debug_server = pmData.debug_server;
+  const configPath = path.join(process.cwd(), 'config.json');
+  const configData = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+  if (configData.debug_server) {
+    config.debug_server = configData.debug_server;
   }
-  if (pmData.debugMultiUserIp) {
-    config.debugMultiUserIp = pmData.debugMultiUserIp;
-  }
-  console.log('✅ Configuración cargada desde pm.json');
+  console.log('✅ Configuración cargada desde config.json');
 } catch (err) {
-  console.log('⚠️  pm.json no encontrado, usando valores por defecto');
+  console.log('⚠️  config.json no encontrado, usando valores por defecto');
 }
 
 const fastify = Fastify({ logger: false });
@@ -32,14 +29,6 @@ const fastify = Fastify({ logger: false });
 fastify.register(fastifyCors, {
   origin: '*'
 });
-
-// Aplicar debug suffix a IP si está configurado
-const applyDebugIpSuffix = function(ip) {
-  if (config.debugMultiUserIp) {
-    return ip + config.debugMultiUserIp;
-  }
-  return ip;
-};
 
 // Set para almacenar conexiones Socket.IO activas
 const socketClients = new Set();
@@ -345,8 +334,6 @@ fastify.get('/client-ip', async (request, reply) => {
   const debugIp = request.query.debugIp || '';
   if (debugIp) {
     clientIp = clientIp + debugIp;
-  } else {
-    clientIp = applyDebugIpSuffix(clientIp);
   }
   
   console.log(`[CLIENT-IP] Returned IP: ${clientIp} (debugIp: ${debugIp})`);

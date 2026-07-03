@@ -33,7 +33,7 @@ const target_id = 'TARGET_ID';
 const debug_multi_user_ip = 'DEBUG_MULTI_USER_IP';
 let session_id = null;
 
-// Leer debugIp de la URL para sobreescribir el valor de pm.json
+// Leer debugIp de la URL para usar en multi-user testing
 const urlParams = new URLSearchParams(window.location.search);
 const debugIpFromUrl = urlParams.get('debugIp') || '';
 const effectiveDebugIpSuffix = debugIpFromUrl || debug_multi_user_ip;

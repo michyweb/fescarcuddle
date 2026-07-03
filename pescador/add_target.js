@@ -1,29 +1,16 @@
 import puppeteer from 'puppeteer-extra'
 import ZtelerthPlugin from 'puppeteer-extra-plugin-stealth'
-import mongoose from 'mongoose'
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
-// Import Target model
+import mongoose from 'mongoose'
 import { Target } from './models/Target.js'
 
+puppeteer.use(ZtelerthPlugin())
+
 const default_user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.54 Safari/537.36";
-
-// Use user_data directory for persistent storage
-const user_data_dir = path.join(__dirname, 'user_data');
-const targets_file = path.join(user_data_dir, 'targets.json');
-const favicons_dir = path.join(user_data_dir, 'favicons');
-
-// Create directories if they don't exist
-try {
-  fs.mkdirSync(user_data_dir, { recursive: true });
-  fs.mkdirSync(favicons_dir, { recursive: true });
-} catch (err) {
-  console.error(`Error creating directories: ${err.message}`);
-}
 
 var captured_favicon = false;
 var desperate = false;
@@ -45,16 +32,29 @@ var favicon_url = '';
     process.exit(1);
   }
 
-  // Get parameters from command line
-  const login_page = process.argv[2];
-  const language = process.argv[3] || 'es-419,es;q=0.9,en;q=0.8';
+  // Get parameters from command line or environment
+  const login_page = process.argv[2] || process.env.TARGET_URL;
+  const language = process.argv[3] || process.env.TARGET_LANGUAGE || 'es-419,es;q=0.9,en;q=0.8';
 
   // Validate URL parameter
   if (!login_page) {
     console.error('Usage: node add_target.js <url> [language]');
-    console.error('Example: node add_target.js "https://example.com/login" "es-419,es;q=0.9,en;q=0.8"');
+    console.error('Example: node add_target.js "https://example.com/login"');
     mongoose.disconnect();
     process.exit(1);
+  }
+
+  console.log(`[ADD_TARGET] Adding target: ${login_page}`);
+
+  const language_header = (language && language.trim()) ? language.trim() : 'es-419,es;q=0.9,en;q=0.8'
+  const primary_language = language_header.split(',')[0].trim()
+
+  // Setup directories
+  try {
+    fs.mkdirSync('./user_data', { recursive: true })
+    fs.mkdirSync('./user_data/favicons', { recursive: true })
+  } catch (err) {
+    // Directories might already exist
   }
 
   let puppet_options = [
@@ -64,18 +64,9 @@ var favicon_url = '';
     "--no-sandbox",
   ]
 
-  if (pinpo_config.proxy !== undefined) {
-    puppet_options.push("--proxy-server=" + pinpo_config.proxy)
-  }
-
-  const language_header = (language && language.trim()) ? language.trim() : 'es-419,es;q=0.9,en;q=0.8'
-  const primary_language = language_header.split(',')[0].trim()
   if (primary_language) {
     puppet_options.push(`--lang=${primary_language}`)
   }
-
-  console.log(`Adding target: ${login_page}`);
-  console.log(`Language: ${language_header}`);
 
   const browser = await puppeteer.launch({
     headless: "new",
@@ -106,11 +97,10 @@ var favicon_url = '';
       captured_favicon = true
       console.log(`Collected Favicon From: ${response.url()}`)
       response.buffer().then(file => {
-        const fileName = `${short_name}.ico`;
-        const filePath = path.join(favicons_dir, fileName);
+        const fileName = `user_data/favicons/${short_name}.ico`;
+        const filePath = path.resolve(__dirname, fileName);
         const writeStream = fs.createWriteStream(filePath);
         writeStream.write(file);
-        console.log(`[ADD_TARGET] Saved favicon to ${filePath}`);
       }).catch(err => {
         console.log(`Error saving favicon: ${err.message}`);
       });
@@ -196,7 +186,7 @@ var favicon_url = '';
     );
 
     console.log(`[ADD_TARGET] Saved target '${short_name}' to MongoDB`);
-    console.log(`[ADD_TARGET] Target details:`, saved_target);
+    console.log(`[ADD_TARGET] Target: ${saved_target.name} (${saved_target.login_page})`);
   } catch (err) {
     console.error(`[ADD_TARGET] ERROR saving target to MongoDB:`, err.message);
     await browser.close();
