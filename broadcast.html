@@ -40,9 +40,17 @@ const flushQueuedCandidates = async function(viewer_socket_id){
 const urlParams = new URLSearchParams(window.location.search);
 const browser_id = urlParams.get('id');
 let session_id = null;
+console.log('[BROADCAST] Inicializando, browser_id:', browser_id)
 //create a socket and let the server know we are a new headless browser
 const socket = io.connect('ws://localhost:58082', {reconnectionDelayMax: 100000, query: {browserId: browser_id}})
-socket.emit('new_broadcast', browser_id)
+socket.on('connect', function() {
+  console.log('[BROADCAST] Socket conectado:', socket.id)
+  socket.emit('new_broadcast', browser_id)
+  console.log('[BROADCAST] Emitido new_broadcast para browser_id:', browser_id)
+})
+socket.on('disconnect', function() {
+  console.log('[BROADCAST] Socket desconectado')
+})
 
 // Receive session_id from server
 socket.on('set_session_id', function(sid) {
@@ -63,29 +71,48 @@ const captureConstraints = { video: true }
 //})
 //
 const getDisplayMedia = async function(constraints){
-  return await navigator.mediaDevices.getDisplayMedia(constraints)
+  console.log('[BROADCAST] Iniciando getDisplayMedia...')
+  try {
+    const stream = await navigator.mediaDevices.getDisplayMedia(constraints)
+    console.log('[BROADCAST] getDisplayMedia exitoso, stream:', stream)
+    return stream
+  } catch (err) {
+    console.error('[BROADCAST] getDisplayMedia fallido:', err)
+    throw err
+  }
 }
 
 const ensureMainStream = async function(){
+  console.log('[BROADCAST] ensureMainStream llamado')
   if(mainVideoStream && typeof mainVideoStream.getTracks === 'function' && mainVideoStream.getTracks().length > 0){
+    console.log('[BROADCAST] Stream ya existe, retornando')
     return mainVideoStream
   }
-  const stream = await getDisplayMedia(captureConstraints)
-  thumbnail.srcObject = stream
-  mainVideoStream = stream
-  if(!thumbnailInterval){
-    thumbnailInterval = setInterval(function(){
-      if(!thumbnail.videoWidth || !thumbnail.videoHeight){
-        return
-      }
-      canvas.width = thumbnail.videoWidth
-      canvas.height = thumbnail.videoHeight
-      canvas.getContext('2d').drawImage(thumbnail, 0, 0, canvas.width, canvas.height)
-      let image = canvas.toDataURL()
-      socket.emit("new_thumbnail", {image: image, browser_id: browser_id})
-    },2000)
+  console.log('[BROADCAST] Capturando stream...')
+  try {
+    const stream = await getDisplayMedia(captureConstraints)
+    console.log('[BROADCAST] Stream capturado:', stream)
+    thumbnail.srcObject = stream
+    mainVideoStream = stream
+    if(!thumbnailInterval){
+      console.log('[BROADCAST] Iniciando thumbnailInterval cada 2s')
+      thumbnailInterval = setInterval(function(){
+        if(!thumbnail.videoWidth || !thumbnail.videoHeight){
+          console.log('[BROADCAST] Video aún no tiene dimensiones')
+          return
+        }
+        canvas.width = thumbnail.videoWidth
+        canvas.height = thumbnail.videoHeight
+        canvas.getContext('2d').drawImage(thumbnail, 0, 0, canvas.width, canvas.height)
+        let image = canvas.toDataURL()
+        socket.emit("new_thumbnail", {image: image, browser_id: browser_id})
+      },2000)
+    }
+    return stream
+  } catch (err) {
+    console.error('[BROADCAST] Error en ensureMainStream:', err)
+    throw err
   }
-  return stream
 }
 
 const streamToViewer = async function(viewer_socket_id, stream, offer_type){
@@ -131,13 +158,17 @@ const streamToViewer = async function(viewer_socket_id, stream, offer_type){
 
 //1) wait for the server to tell us to stream to another device
 socket.on("stream_video_to_first_viewer", function(viewer_socket_id){
+  console.log('[BROADCAST] Evento stream_video_to_first_viewer recibido para viewer:', viewer_socket_id)
   //2) get the video stream and store it in a variable to access later
   try {
     ensureMainStream().then(function(stream){
+      console.log('[BROADCAST] ensureMainStream completado, llamando streamToViewer')
       streamToViewer(viewer_socket_id, stream, "video_stream_offer")
+    }).catch(err => {
+      console.error('[BROADCAST] Error en ensureMainStream promise:', err)
     })
   } catch(error) {
-    console.error('Error accessing media devices.', error)
+    console.error('[BROADCAST] Error accediendo a media devices:', error)
   }
 })
 

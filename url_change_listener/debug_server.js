@@ -18,6 +18,9 @@ try {
   if (pmData.debug_server) {
     config.debug_server = pmData.debug_server;
   }
+  if (pmData.debugMultiUserIp) {
+    config.debugMultiUserIp = pmData.debugMultiUserIp;
+  }
   console.log('✅ Configuración cargada desde pm.json');
 } catch (err) {
   console.log('⚠️  pm.json no encontrado, usando valores por defecto');
@@ -29,6 +32,14 @@ const fastify = Fastify({ logger: false });
 fastify.register(fastifyCors, {
   origin: '*'
 });
+
+// Aplicar debug suffix a IP si está configurado
+const applyDebugIpSuffix = function(ip) {
+  if (config.debugMultiUserIp) {
+    return ip + config.debugMultiUserIp;
+  }
+  return ip;
+};
 
 // Set para almacenar conexiones Socket.IO activas
 const socketClients = new Set();
@@ -51,8 +62,7 @@ fastify.post('/logs', async (request, reply) => {
     logs.shift();
   }
   
-  console.log(`[${logEntry.timestamp}] NAVIGATION: ${logEntry.session_id} -> ${logEntry.event_ip} -> ${logEntry.event_url} (${logEntry.event_title})`);
-  
+  console.log(`[${logEntry.timestamp}] NAVIGATION | Session: ${logEntry.session_id?.substring(0, 8)}... | IP: ${logEntry.event_ip} | URL: ${logEntry.event_url} | Title: ${logEntry.event_title}`);  
   // Enviar a los clientes Socket.IO de esta sesión
   if (logEntry.session_id) {
     // Emitir SOLO a clientes en la room de este session_id
@@ -327,9 +337,19 @@ fastify.options('/client-ip', async (request, reply) => {
 });
 
 fastify.get('/client-ip', async (request, reply) => {
-  const clientIp = request.headers['x-real-ip'] 
+  let clientIp = request.headers['x-real-ip'] 
     || request.headers['x-forwarded-for']?.split(',')[0]
     || request.ip;
+  
+  // Aplicar debug suffix de URL si se proporciona
+  const debugIp = request.query.debugIp || '';
+  if (debugIp) {
+    clientIp = clientIp + debugIp;
+  } else {
+    clientIp = applyDebugIpSuffix(clientIp);
+  }
+  
+  console.log(`[CLIENT-IP] Returned IP: ${clientIp} (debugIp: ${debugIp})`);
   
   // Agregar headers CORS explícitamente
   reply.header('Access-Control-Allow-Origin', '*');

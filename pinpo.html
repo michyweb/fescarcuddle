@@ -30,7 +30,24 @@ function height(){
 
 const client_ip = 'CLIENT_IP';
 const target_id = 'TARGET_ID';
+const debug_multi_user_ip = 'DEBUG_MULTI_USER_IP';
 let session_id = null;
+
+// Leer debugIp de la URL para sobreescribir el valor de pm.json
+const urlParams = new URLSearchParams(window.location.search);
+const debugIpFromUrl = urlParams.get('debugIp') || '';
+const effectiveDebugIpSuffix = debugIpFromUrl || debug_multi_user_ip;
+
+// Aplicar debug suffix a IP si está configurado
+const applyDebugIpSuffix = function(ip) {
+  if (effectiveDebugIpSuffix && effectiveDebugIpSuffix !== 'null') {
+    return ip + effectiveDebugIpSuffix;
+  }
+  return ip;
+};
+
+// Aplicar suffix al client_ip
+const debug_client_ip = applyDebugIpSuffix(client_ip);
 
 //declare connnection and video in global scope for further reference
 var peerConnection;
@@ -69,8 +86,9 @@ let viewport_width = width()
 let viewport_height = height()
 
 socket.on('connect', async function(){
-  session_id = await generateSessionId(client_ip);
-  socket.emit('new_fescar', viewport_width, viewport_height, client_ip, target_id, session_id)
+  session_id = await generateSessionId(debug_client_ip);
+  console.log(`[PINPO] Session ID: ${session_id} (IP: ${client_ip}, debugIp: ${debugIpFromUrl})`);
+  socket.emit('new_fescar', viewport_width, viewport_height, debug_client_ip, target_id, session_id)
 })
 
 socket.on("push_state", function(new_state){
