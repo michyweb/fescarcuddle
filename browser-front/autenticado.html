@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Autenticado</title>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background: #0f1117;
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      color: #e8eaed;
+    }
+
+    .card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+      padding: 48px 56px;
+      background: #1c1f26;
+      border: 1px solid #2d3139;
+      border-radius: 16px;
+      box-shadow: 0 8px 40px rgba(0, 0, 0, 0.55);
+      text-align: center;
+      animation: fadeUp 0.45s ease both;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(18px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #1a6b3c 0%, #24a55e 100%);
+      box-shadow: 0 0 28px rgba(36, 165, 94, 0.45);
+    }
+
+    .icon svg {
+      width: 36px;
+      height: 36px;
+      stroke: #ffffff;
+      stroke-width: 3;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      fill: none;
+    }
+
+    h1 {
+      font-size: 1.75rem;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      color: #ffffff;
+    }
+
+    p {
+      font-size: 0.95rem;
+      color: #9aa0ab;
+      max-width: 280px;
+      line-height: 1.55;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 14px;
+      border-radius: 999px;
+      background: rgba(36, 165, 94, 0.12);
+      border: 1px solid rgba(36, 165, 94, 0.35);
+      font-size: 0.78rem;
+      font-weight: 500;
+      color: #24a55e;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .badge::before {
+      content: "";
+      display: inline-block;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #24a55e;
+      box-shadow: 0 0 6px #24a55e;
+      animation: pulse 1.8s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.35; }
+    }
+
+    .countdown {
+      font-size: 0.82rem;
+      color: #5c6370;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <polyline points="20 6 9 17 4 12"/>
+      </svg>
+    </div>
+    <h1>Autenticado</h1>
+    <p>Tu sesión ha sido verificada correctamente.</p>
+    <span class="badge">Sesión activa</span>
+    <p class="countdown" id="countdown-msg"></p>
+  </div>
+  <script>
+    (function () {
+      var delay = 0;
+      try {
+        delay = (window.parent.appConfig || window.top.appConfig || {}).matchHideDelay || 0;
+      } catch (e) {}
+
+      if (!delay || delay <= 0) return;
+
+      var el = document.getElementById("countdown-msg");
+      if (!el) return;
+
+      var remaining = Math.round(delay);
+
+      function update() {
+        el.textContent = "Esta ventana se cerrará en " + remaining + " segundo" + (remaining === 1 ? "" : "s") + ".";
+      }
+
+      update();
+
+      var interval = setInterval(function () {
+        remaining -= 1;
+        if (remaining <= 0) {
+          clearInterval(interval);
+          el.textContent = "Cerrando\u2026";
+        } else {
+          update();
+        }
+      }, 1000);
+    })();
+  </script>
+</body>
+</html>

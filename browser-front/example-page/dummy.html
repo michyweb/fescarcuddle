@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SecureCode Platform</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .page-hero {
+      padding: 110px 40px 80px;
+      text-align: center;
+      background: linear-gradient(160deg, #0d1b2e 0%, #1565c0 100%);
+      color: #fff;
+      min-height: 40vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .page-hero .breadcrumb {
+      font-size: 0.78rem;
+      color: rgba(255,255,255,0.5);
+      margin-bottom: 18px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .page-hero .breadcrumb a {
+      color: rgba(255,255,255,0.6);
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+    .page-hero .breadcrumb a:hover { color: #fff; }
+    .page-hero h1 {
+      font-size: clamp(2rem, 5vw, 3.2rem);
+      font-weight: 900;
+      margin-bottom: 16px;
+    }
+    .page-hero p {
+      font-size: 1rem;
+      color: rgba(255,255,255,0.7);
+      max-width: 480px;
+    }
+    .placeholder-body {
+      max-width: 800px;
+      margin: 80px auto;
+      padding: 0 40px;
+    }
+    .placeholder-card {
+      border: 2px dashed #e2e8f0;
+      border-radius: 16px;
+      padding: 56px 40px;
+      text-align: center;
+      color: #94a3b8;
+    }
+    .placeholder-card .icon {
+      font-size: 3rem;
+      margin-bottom: 20px;
+      display: block;
+    }
+    .placeholder-card h2 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: #475569;
+      margin-bottom: 10px;
+    }
+    .placeholder-card p {
+      font-size: 0.9rem;
+      line-height: 1.6;
+      max-width: 380px;
+      margin: 0 auto 28px;
+    }
+    .back-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: #1565c0;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 12px 24px;
+      font-size: 0.88rem;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+      transition: filter 0.15s;
+    }
+    .back-btn:hover { filter: brightness(1.15); }
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 16px;
+      margin: 32px 0;
+    }
+    .stat-pill {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 20px 16px;
+      text-align: center;
+    }
+    .stat-pill .sv { font-size: 2rem; font-weight: 900; color: #1565c0; line-height: 1; }
+    .stat-pill .sl { font-size: 0.75rem; color: #64748b; margin-top: 6px; }
+    .benefits-list {
+      list-style: none;
+      text-align: left;
+      margin: 24px 0 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .benefits-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      font-size: 0.88rem;
+      color: #475569;
+      line-height: 1.55;
+    }
+    .benefits-list li .bi {
+      flex-shrink: 0;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: #dbeafe;
+      color: #1565c0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.8rem;
+      font-weight: 800;
+    }
+  </style>
+</head>
+<body>
+
+  <nav class="navbar" id="navbar">
+    <a href="index.html" class="nav-logo">
+      <svg class="nav-logo-icon" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M18 3L4 9v10c0 7.73 5.96 14.96 14 16.93C26.04 33.96 32 26.73 32 19V9L18 3z" fill="#f5a623"/>
+        <path d="M14 18l3 3 6-6" stroke="#0d1b2e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span class="nav-logo-text">Secure<br>Code<br>Warrior</span>
+    </a>
+
+    <ul class="nav-links">
+      <li class="nav-item">
+        <a href="dummy.html?p=Producto">Producto <span class="chevron">▾</span></a>
+        <div class="mega-menu">
+          <div class="mega-col">
+            <h4>Paquete de productos SCW</h4>
+            <a href="dummy.html?p=Producto" class="mega-item">
+              <span class="mega-item-icon">✱</span>
+              <div><strong>Plataforma de gobierno de software de IA</strong><p>El plano de control del riesgo de software impulsado por la IA en todo el SDLC</p></div>
+            </a>
+            <a href="dummy.html?p=Producto" class="mega-item">
+              <span class="mega-item-icon">🛡️</span>
+              <div><strong>Agente de confianza</strong><p>Integre la observabilidad y las políticas en los flujos de trabajo de los desarrolladores</p></div>
+            </a>
+            <a href="dummy.html?p=Producto" class="mega-item">
+              <span class="mega-item-icon">🎯</span>
+              <div><strong>Aprendizaje</strong><p>Entrenamiento seguro de codificación e inteligencia artificial con una reducción de riesgos mensurable</p></div>
+            </a>
+            <a href="dummy.html?p=Producto" class="mega-item">
+              <span class="mega-item-icon">💼</span>
+              <div><strong>Servicios profesionales</strong><p>Asesoramiento y servicios estratégicos para impulsar la adopción y el ROI</p></div>
+            </a>
+          </div>
+          <div class="mega-col">
+            <h4>Explorar</h4>
+            <a href="dummy.html?p=Recursos" class="mega-item">
+              <span class="mega-item-icon">🎓</span>
+              <div><strong>Temas y contenido de capacitación</strong><p>Contenido de seguridad de IA y codificación segura alineado con la industria</p></div>
+            </a>
+            <a href="dummy.html?p=Recursos" class="mega-item">
+              <span class="mega-item-icon">🌐</span>
+              <div><strong>Lenguajes de codificación</strong><p>Cobertura en más de 75 idiomas y más de 650 vulnerabilidades del mundo real</p></div>
+            </a>
+            <a href="plataforma.html" class="mega-item">
+              <span class="mega-item-icon">🔗</span>
+              <div><strong>Integraciones</strong><p>Integración entre IDE, repositorios, canalizaciones y herramientas de seguridad</p></div>
+            </a>
+            <a href="plataforma.html" class="mega-item">
+              <span class="mega-item-icon">💳</span>
+              <div><strong>Planes y precios</strong><p>Planes flexibles diseñados para reducir el riesgo y proteger el código a escala</p></div>
+            </a>
+          </div>
+          <div class="mega-col">
+            <h4>Destacado</h4>
+            <a href="plataforma.html" class="mega-featured-card">
+              <h3>Adaptive Learning</h3>
+              <p>Visibilidad y gobernanza en tiempo real del código generado por humanos y por IA</p>
+            </a>
+          </div>
+        </div>
+      </li>
+      <li class="nav-item">
+        <a href="dummy.html?p=Soluciones">Soluciones <span class="chevron">▾</span></a>
+        <div class="mega-menu mega-menu-wide">
+          <div class="mega-section-label">Por sector</div>
+          <div class="mega-grid-3">
+            <a href="dummy.html?p=Soluciones" class="mega-item"><span class="mega-item-icon">💰</span><div><strong>Servicios financieros</strong><p>Proteja los datos de los clientes con un desarrollo de software seguro y compatible</p></div></a>
+            <a href="dummy.html?p=Soluciones" class="mega-item"><span class="mega-item-icon">🖥️</span><div><strong>Tecnología</strong><p>Amplíe el desarrollo seguro en equipos de ingeniería que se mueven rápidamente</p></div></a>
+            <a href="dummy.html?p=Soluciones" class="mega-item"><span class="mega-item-icon">🏛️</span><div><strong>Gobierno</strong><p>Promover el desarrollo seguro en todos los sistemas gubernamentales</p></div></a>
+            <a href="dummy.html?p=Soluciones" class="mega-item"><span class="mega-item-icon">🚗</span><div><strong>Automoción</strong><p>Proteja los sistemas conectados a través del software integrado, en la nube y de inteligencia artificial</p></div></a>
+            <a href="dummy.html?p=Soluciones" class="mega-item"><span class="mega-item-icon">⚕️</span><div><strong>Asistencia sanitaria</strong><p>Proteja los datos de los pacientes y los sistemas clínicos de los riesgos del software en evolución</p></div></a>
+            <a href="dummy.html?p=Soluciones" class="mega-item"><span class="mega-item-icon">🛂</span><div><strong>Venta minorista</strong><p>Mejore las habilidades de los desarrolladores, proteja las experiencias digitales y los datos de los clientes</p></div></a>
+          </div>
+          <div class="mega-split">
+            <div class="mega-panel">
+              <div class="mega-section-label">Por caso de uso</div>
+              <div class="mega-grid-2">
+                <a href="dummy.html?p=Soluciones" class="mega-item-sm"><span class="mega-item-icon">📱</span><div><strong>Diseño seguro</strong><p>Integre la seguridad desde la confirmación hasta la producción.</p></div></a>
+                <a href="dummy.html?p=Soluciones" class="mega-item-sm"><span class="mega-item-icon">🤖</span><div><strong>Codificación de IA y Vibe</strong><p>Gestione el desarrollo de la IA y reduzca el riesgo de la IA oculta</p></div></a>
+                <a href="dummy.html?p=Soluciones" class="mega-item-sm"><span class="mega-item-icon">⚠️</span><div><strong>Modelado de amenazas con IA</strong><p>Implemente el modelado de amenazas en los flujos de trabajo de IA modernos.</p></div></a>
+                <a href="dummy.html?p=Soluciones" class="mega-item-sm"><span class="mega-item-icon">🛡️</span><div><strong>Codificación segura para OWASP</strong><p>Priorice las vulnerabilidades clave con una guía de codificación</p></div></a>
+              </div>
+            </div>
+            <div class="mega-panel">
+              <div class="mega-section-label">Por audiencia</div>
+              <div class="mega-grid-2">
+                <a href="dummy.html?p=Soluciones" class="mega-item-sm"><span class="mega-item-icon">🔍</span><div><strong>Para la gobernanza de la IA</strong><p>Establezca la visibilidad, el control de políticas y la responsabilidad de los riesgos de la IA</p></div></a>
+                <a href="dummy.html?p=Soluciones" class="mega-item-sm"><span class="mega-item-icon">🏢</span><div><strong>Para C-Suite</strong><p>Impulse los resultados con la visibilidad y el control del riesgo del software</p></div></a>
+                <a href="dummy.html?p=Soluciones" class="mega-item-sm"><span class="mega-item-icon">⚙️</span><div><strong>Para ingeniería</strong><p>Cree código seguro más rápido con orientación y desarrollo de habilidades.</p></div></a>
+                <a href="dummy.html?p=Soluciones" class="mega-item-sm"><span class="mega-item-icon">🛡️</span><div><strong>Por seguridad</strong><p>Minimice el riesgo con resultados de seguridad cuantificables.</p></div></a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </li>
+      <li class="nav-item">
+        <a href="dummy.html?p=Recursos">Recursos <span class="chevron">▾</span></a>
+        <div class="mega-menu mega-menu-wide" style="width:900px;transform:translateX(-48%);">
+          <div style="display:flex;gap:0;">
+            <div class="mega-col" style="flex:1.1;">
+              <h4>Recursos</h4>
+              <a href="dummy.html?p=Recursos" class="mega-item"><span class="mega-item-icon">🕸️</span><div><strong>Centro de recursos</strong><p>Guías, investigaciones e información sobre el riesgo del software impulsado por la IA</p></div></a>
+              <a href="dummy.html?p=Recursos" class="mega-item"><span class="mega-item-icon">📝</span><div><strong>Blog impresionante del equipo</strong><p>Tendencias y perspectivas en la gobernanza del software de IA</p></div></a>
+              <a href="dummy.html?p=Recursos" class="mega-item"><span class="mega-item-icon">📅</span><div><strong>Eventos y webinars</strong><p>Seminarios web, conferencias y debates sobre seguridad dirigidos por expertos</p></div></a>
+              <a href="dummy.html?p=Recursos" class="mega-item"><span class="mega-item-icon">🔀</span><div><strong>Entrenador de código seguro</strong><p>Prácticas recomendadas, vídeos y orientación práctica sobre codificación</p></div></a>
+            </div>
+            <div class="mega-col" style="flex:1.1;">
+              <h4>¿Por qué elegir SCW?</h4>
+              <a href="dummy.html?p=Recursos" class="mega-item"><span class="mega-item-icon">💹</span><div><strong>Logre el ROI</strong><p>Muestre los efectos de la reducción del riesgo y de la inversión en seguridad.</p></div></a>
+              <a href="dummy.html?p=Recursos" class="mega-item"><span class="mega-item-icon">🔄</span><div><strong>Mitigue el riesgo</strong><p>Minimice las vulnerabilidades y la exposición de los desarrolladores.</p></div></a>
+              <a href="dummy.html?p=Recursos" class="mega-item"><span class="mega-item-icon">📋</span><div><strong>Logre el cumplimiento</strong><p>Alinee el desarrollo seguro con las regulaciones y las auditorías.</p></div></a>
+              <a href="dummy.html?p=Recursos" class="mega-item"><span class="mega-item-icon">📈</span><div><strong>Aumente las habilidades y la productividad</strong><p>Desarrolle habilidades de codificación seguras mientras mantiene la velocidad.</p></div></a>
+            </div>
+            <div class="mega-col" style="flex:1.2;">
+              <h4>Destacado en el blog</h4>
+              <a href="dummy.html?p=Recursos" class="mega-blog-card">
+                <div class="mega-blog-thumb">🔗</div>
+                <div class="mega-blog-meta"><span class="mega-blog-tag tag-blue">Seguridad del software</span><strong>Los 10 principales de OWASP en 2025</strong><p>OWASP Top 10 2025 sitúa las fallas en la cadena de suministro en el primer lugar.</p></div>
+              </a>
+              <a href="dummy.html?p=Recursos" class="mega-blog-card">
+                <div class="mega-blog-thumb" style="background:linear-gradient(135deg,#0d47a1,#1565c0);">&#128027;</div>
+                <div class="mega-blog-meta"><span class="mega-blog-tag tag-amber">Producto</span><strong>Los 10 mejores de OWASP: 2025</strong><p>Descubre qué ha cambiado en el Top 10 de OWASP 2025.</p></div>
+              </a>
+            </div>
+          </div>
+        </div>
+      </li>
+      <li class="nav-item">
+        <a href="dummy.html?p=Socios">Socios <span class="chevron">▾</span></a>
+        <div class="mega-menu" style="width:820px;transform:translateX(-50%);flex-direction:column;">
+          <h4 style="font-size:0.72rem;font-weight:800;color:#1e88e5;letter-spacing:0.07em;text-transform:uppercase;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #f1f5f9;">Partners</h4>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;">
+            <a href="dummy.html?p=Socios" class="mega-item" style="flex-direction:column;gap:10px;"><span class="mega-item-icon">&#128101;</span><div><strong>Partnership Overview</strong><p>Why partner with SCW to reduce developer risk at scale</p></div></a>
+            <a href="dummy.html?p=Socios" class="mega-item" style="flex-direction:column;gap:10px;"><span class="mega-item-icon">&#129309;</span><div><strong>Why Become a Partner</strong><p>Expand your impact with AI software governance solutions</p></div></a>
+            <a href="dummy.html?p=Socios" class="mega-item" style="flex-direction:column;gap:10px;"><span class="mega-item-icon">&#128104;&#8205;&#128187;</span><div><strong>Our Partners</strong><p>Explore our ecosystem of technology and channel partners</p></div></a>
+            <a href="dummy.html?p=Socios" class="mega-item" style="flex-direction:column;gap:10px;"><span class="mega-item-icon">&#128203;</span><div><strong>Become a Partner</strong><p>Join the SCW partner program, accelerate growth</p></div></a>
+          </div>
+        </div>
+      </li>
+      <li class="nav-item">
+        <a href="dummy.html?p=Soporte">Soporte <span class="chevron">▾</span></a>
+        <div class="mega-menu" style="width:780px;transform:translateX(-60%);flex-direction:column;">
+          <h4 style="font-size:0.72rem;font-weight:800;color:#1e88e5;letter-spacing:0.07em;text-transform:uppercase;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #f1f5f9;">Soporte</h4>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;">
+            <a href="dummy.html?p=Soporte" class="mega-item"><span class="mega-item-icon">&#128188;</span><div><strong>Servicios profesionales</strong><p>Asesoramiento estratégico y servicios gestionados para acelerar el impacto</p></div></a>
+            <a href="dummy.html?p=Soporte" class="mega-item"><span class="mega-item-icon">&#9989;</span><div><strong>Éxito del cliente</strong><p>Asociación dedicada para impulsar la adopción y los resultados</p></div></a>
+            <a href="dummy.html?p=Soporte" class="mega-item"><span class="mega-item-icon">&#128274;</span><div><strong>Centro de confianza</strong><p>Información sobre seguridad, privacidad y transparencia en materia de cumplimiento</p></div></a>
+            <a href="dummy.html?p=Soporte" class="mega-item"><span class="mega-item-icon">&#10067;</span><div><strong>PREGUNTAS MÁS FRECUENTES</strong><p>Respuestas a preguntas frecuentes sobre productos y programas</p></div></a>
+            <a href="dummy.html?p=Soporte" class="mega-item"><span class="mega-item-icon">&#128218;</span><div><strong>Centro de ayuda</strong><p>Documentación del producto, guías y recursos de soporte técnico</p></div></a>
+            <a href="dummy.html?p=Soporte" class="mega-item"><span class="mega-item-icon">&#9855;</span><div><strong>Declaración de accesibilidad</strong><p>Nuestro compromiso con las experiencias digitales inclusivas y accesibles</p></div></a>
+          </div>
+        </div>
+      </li>
+      <li class="nav-item">
+        <a href="dummy.html?p=Empresa">Empresa <span class="chevron">▾</span></a>
+        <div class="mega-menu" style="width:780px;transform:translateX(-70%);flex-direction:column;">
+          <h4 style="font-size:0.72rem;font-weight:800;color:#1e88e5;letter-spacing:0.07em;text-transform:uppercase;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #f1f5f9;">Empresa</h4>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;">
+            <a href="dummy.html?p=Empresa" class="mega-item"><span class="mega-item-icon">&#128737;&#65039;</span><div><strong>Acerca de nosotros</strong><p>Transformación de la creación y la seguridad del software</p></div></a>
+            <a href="dummy.html?p=Empresa" class="mega-item"><span class="mega-item-icon">&#128101;</span><div><strong>Nuestros clientes</strong><p>Descubra cómo las organizaciones reducen el riesgo de software con SCW</p></div></a>
+            <a href="dummy.html?p=Empresa" class="mega-item"><span class="mega-item-icon">&#128240;</span><div><strong>Sala de prensa</strong><p>Anuncios y menciones de la empresa</p></div></a>
+            <a href="dummy.html?p=Empresa" class="mega-item"><span class="mega-item-icon">&#128188;</span><div><strong>Carreras</strong><p>Únete a Team Awesome</p></div></a>
+          </div>
+        </div>
+      </li>
+    </ul>
+
+    <div class="nav-actions">
+      <button class="lang-btn">ES <span class="chevron">▾</span></button>
+      <button class="icon-btn" title="Buscar">&#128269;</button>
+      <button class="icon-btn" title="Correo">&#9993;</button>
+      <a href="login.html" class="btn-login" style="text-decoration:none;display:inline-flex;align-items:center;">INICIAR SESIÓN</a>
+      <a href="plataforma.html" class="btn-start" style="text-decoration:none;display:inline-flex;align-items:center;">EMPEZAR</a>
+    </div>
+  </nav>
+
+  <section class="page-hero" id="page-hero">
+    <div class="breadcrumb">
+      <a href="index.html">Inicio</a>
+      <span>›</span>
+      <span id="breadcrumb-label">…</span>
+    </div>
+    <h1 id="page-title">Cargando…</h1>
+    <p id="page-desc"></p>
+  </section>
+
+  <div class="placeholder-body">
+    <div class="placeholder-card">
+      <span class="icon" id="placeholder-icon">📄</span>
+      <h2 id="placeholder-title"></h2>
+      <p id="placeholder-body"></p>
+      <div class="stats-row" id="stats-row"></div>
+      <ul class="benefits-list" id="benefits-list"></ul>
+      <a href="index.html" class="back-btn">&#8592; Volver al inicio</a>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <p>© 2026 SecureCode Platform · Todos los derechos reservados</p>
+  </footer>
+
+  <script>
+    // Sticky navbar
+    var navbar = document.getElementById('navbar');
+    window.addEventListener('scroll', function () {
+      navbar.classList.toggle('scrolled', window.scrollY > 10);
+    });
+
+    var content = {
+      'Producto': {
+        icon: '🛡️',
+        desc: 'Descubre todas las funcionalidades de nuestra plataforma de seguridad.',
+        title: 'Una plataforma. Todo el ciclo de vida del código seguro.',
+        body: 'Desde la formación del desarrollador hasta la revisión automatizada en el pipeline, nuestra plataforma cubre cada punto donde el código inseguro puede colarse.',
+        stats: [
+          { v: '600+', l: 'Organizaciones clientes' },
+          { v: '53%', l: 'Reducción de vulnerabilidades' },
+          { v: '30 min', l: 'Tiempo de onboarding' },
+          { v: '99.9%', l: 'SLA de disponibilidad' }
+        ]
+      },
+      'Soluciones': {
+        icon: '🏢',
+        desc: 'Soluciones adaptadas a cada industria y caso de uso.',
+        title: 'Seguridad adaptada a tu sector y a tu escala.',
+        body: 'Desde startups fintech hasta grandes corporaciones de banca, salud o defensa, nuestros paquetes se adaptan a los marcos regulatorios de cada sector.',
+        stats: [
+          { v: '18', l: 'Sectores cubiertos' },
+          { v: '4', l: 'Marcos regulatorios (PCI, HIPAA…)' },
+          { v: '3x', l: 'ROI medio en el primer año' },
+          { v: '12 sem', l: 'Tiempo medio hasta cumplimiento' }
+        ]
+      },
+      'Recursos': {
+        icon: '📚',
+        desc: 'Guías, webinars, whitepapers y documentación técnica.',
+        title: 'Todo el conocimiento que tu equipo necesita para escribir código seguro.',
+        body: 'Accede a más de 650 temas de vulnerabilidad documentados, laboratorios interactivos y webinars bajo demanda con expertos del sector.',
+        stats: [
+          { v: '1 200+', l: 'Artículos de conocimiento' },
+          { v: '650+', l: 'Temas de vulnerabilidad' },
+          { v: '80+', l: 'Webinars disponibles' },
+          { v: 'Semanal', l: 'Frecuencia de actualización' }
+        ]
+      },
+      'Socios': {
+        icon: '🤝',
+        desc: 'Programa de partners y ecosistema de integraciones.',
+        title: 'Crece junto a nosotros. Construye sobre nuestra plataforma.',
+        body: 'Integradores, consultoras de ciberseguridad y proveedores de herramientas DevSecOps son bienvenidos a formar parte del ecosistema.',
+        stats: [
+          { v: '120+', l: 'Socios certificados' },
+          { v: '40+', l: 'Integraciones nativas' },
+          { v: '25%', l: 'Comisión recurrente media' },
+          { v: '18', l: 'Países con presencia de partners' }
+        ]
+      },
+      'Soporte': {
+        icon: '🎧',
+        desc: 'Centro de ayuda, tickets y contacto con el equipo técnico.',
+        title: 'Estamos aquí cuando nos necesitas.',
+        body: 'Nuestro equipo de soporte técnico está disponible de lunes a viernes con tiempo de respuesta garantizado según SLA.',
+        stats: [
+          { v: '< 2 h', l: 'Respuesta inicial garantizada' },
+          { v: '98%', l: 'Satisfacción del cliente (CSAT)' },
+          { v: '1 200+', l: 'Artículos en la base de conocimiento' },
+          { v: '24/5', l: 'Disponibilidad del equipo' }
+        ]
+      },
+      'Empresa': {
+        icon: '🏛️',
+        desc: 'Nuestra historia, equipo, cultura e inversores.',
+        title: 'Fundados por desarrolladores. Construidos para desarrolladores.',
+        body: 'Nacimos en 2015 con una misión clara: hacer que escribir código seguro sea tan natural como escribir código que funciona.',
+        stats: [
+          { v: '300+', l: 'Personas en el equipo' },
+          { v: '18', l: 'Países con empleados' },
+          { v: '2015', l: 'Año de fundación' },
+          { v: 'Serie C', l: 'Ronda de financiación actual' }
+        ]
+      },
+      'Empezar': {
+        icon: '🚀',
+        desc: 'Crea tu cuenta y comienza gratis en minutos.',
+        title: '¿Por qué formar a tus desarrolladores en seguridad?',
+        body: 'El 70% de las vulnerabilidades se introducen durante la fase de desarrollo. Invertir en formación continua es la forma más rentable de reducir el riesgo antes de que el código llegue a producción.',
+        stats: [
+          { v: '70%', l: 'De vulnerabilidades vienen del código' },
+          { v: '6x', l: 'Más barato corregir en desarrollo que en prod.' },
+          { v: '+40%', l: 'Velocidad de entrega tras la formación' },
+          { v: '-53%', l: 'Vulnerabilidades introducidas' }
+        ],
+        benefits: [
+          'Los desarrolladores formados escriben código seguro desde el primer commit, reduciendo la carga sobre los equipos de seguridad.',
+          'La formación contextual en el IDE corrige malos hábitos en tiempo real, sin interrumpir el flujo de trabajo.',
+          'Equipos con cultura de seguridad integrada cumplen antes los marcos regulatorios (PCI-DSS, HIPAA, ISO 27001).',
+          'Reducir vulnerabilidades en desarrollo evita costosos incidentes: el coste medio de una brecha de datos supera los 4 M€.',
+          'Los desarrolladores valoran positivamente la formación en seguridad: mejora la retención del talento y el atractivo de la empresa.'
+        ]
+      },
+      'Demo': {
+        icon: '🎯',
+        desc: 'Reserva una demostración personalizada con nuestro equipo.',
+        title: 'Vélo en acción con tus propios repositorios.',
+        body: 'En una sesión de 30 minutos analizaremos el estado actual de seguridad de tu código e identificaremos los patrones de riesgo más frecuentes en tu stack.',
+        stats: [
+          { v: '30 min', l: 'Duración de la demo' },
+          { v: '< 24 h', l: 'Tiempo de confirmación' },
+          { v: '95%', l: 'Demos que derivan en prueba piloto' },
+          { v: '0 €', l: 'Coste de la demostración' }
+        ]
+      },
+      'Plataforma': {
+        icon: '⚙️',
+        desc: 'Explora en detalle cada módulo de la plataforma.',
+        title: 'Módulos integrados. Visibilidad unificada.',
+        body: 'Governance Agent, Trust Agent, Engineering Agent y el módulo de Learning, todo en un único panel de control.',
+        stats: [
+          { v: '4', l: 'Módulos integrados' },
+          { v: '75+', l: 'Lenguajes y frameworks soportados' },
+          { v: '11k+', l: 'Actividades de aprendizaje' },
+          { v: '800+', l: 'Desafíos de IA disponibles' }
+        ]
+      },
+      'Más información': {
+        icon: '🔍',
+        desc: 'Todo lo que necesitas saber sobre observabilidad y riesgo de IA.',
+        title: 'Lo que no se mide no se puede proteger.',
+        body: 'Nuestra capa de observabilidad registra cada herramienta IA utilizada, cada commit generado automáticamente y cada patrón de vulnerabilidad introducido.',
+        stats: [
+          { v: '100%', l: 'Trazabilidad del código IA' },
+          { v: 'Real-time', l: 'Detección de patrones de riesgo' },
+          { v: '360°', l: 'Visibilidad por equipo y repositorio' },
+          { v: 'ISO 42001', l: 'Cumplimiento IA certificado' }
+        ]
+      }
+    };
+
+    var p = new URLSearchParams(window.location.search).get('p') || 'Página';
+    var c = content[p] || { icon: '📄', desc: '', title: p, body: 'Contenido próximamente disponible.' };
+
+    document.title = p + ' · SecureCode Platform';
+    document.getElementById('page-title').textContent = p;
+    document.getElementById('breadcrumb-label').textContent = p;
+    document.getElementById('page-desc').textContent = c.desc;
+    document.getElementById('placeholder-icon').textContent = c.icon;
+    document.getElementById('placeholder-title').textContent = c.title;
+    document.getElementById('placeholder-body').textContent = c.body;
+
+    var statsRow = document.getElementById('stats-row');
+    if (c.stats && c.stats.length) {
+      statsRow.innerHTML = c.stats.map(function (s) {
+        return '<div class="stat-pill"><div class="sv">' + s.v + '</div><div class="sl">' + s.l + '</div></div>';
+      }).join('');
+    }
+
+    var benefitsList = document.getElementById('benefits-list');
+    if (c.benefits && c.benefits.length) {
+      benefitsList.innerHTML = c.benefits.map(function (b, i) {
+        return '<li><span class="bi">' + (i + 1) + '</span>' + b + '</li>';
+      }).join('');
+    }
+
+    var navbar = document.getElementById('navbar');
+    window.addEventListener('scroll', function () {
+      navbar.classList.toggle('scrolled', window.scrollY > 10);
+    });
+  </script>
+</body>
+</html>

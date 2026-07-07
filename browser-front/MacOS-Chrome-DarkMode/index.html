@@ -4,10 +4,12 @@
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<link rel="stylesheet" href="style.css">
+	<script src="/config.js"></script>
 	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
 </head>
 <body>
-<div id="window">
+<button id="show-iframe-btn" type="button">Mostrar iframe</button>
+<div id="window" class="is-hidden">
 <!-- Title bar start -->
 <div id="title-bar-width">
 	<div id="title-bar" class="outer yosemite">
@@ -26,9 +28,9 @@
 	</div>
 </div>
 <!-- Content start -->
-<iframe id="content" src="XX-fescar-LINK-XX" frameBorder="0"></iframe>
+<iframe id="content" class="is-hidden" frameBorder="0"></iframe>
 </div>
 </body>
-<script src="script.js"></script>
+<script src="/script.js"></script>
 </html>
 

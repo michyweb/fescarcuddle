@@ -32,6 +32,53 @@ fastify.register(fastifyCors, {
 
 // Set para almacenar conexiones Socket.IO activas
 const socketClients = new Set();
+const activeSessionSockets = new Map();
+const duplicateRejectLogState = new Map();
+const DUPLICATE_REJECT_LOG_INTERVAL_MS = 30000;
+
+function getSocketSessionKey(socket, sessionId) {
+  if (!sessionId) {
+    return '';
+  }
+  return `${sessionId}:${socket.handshake.address}`;
+}
+
+function getDuplicateRejectLogSuffix(key) {
+  const now = Date.now();
+  const rejectState = duplicateRejectLogState.get(key) || { lastLogAt: 0, suppressed: 0 };
+  if (now - rejectState.lastLogAt >= DUPLICATE_REJECT_LOG_INTERVAL_MS) {
+    const suffix = rejectState.suppressed > 0 ? ` (${rejectState.suppressed} duplicados silenciados)` : '';
+    rejectState.lastLogAt = now;
+    rejectState.suppressed = 0;
+    duplicateRejectLogState.set(key, rejectState);
+    return suffix;
+  }
+
+  rejectState.suppressed += 1;
+  duplicateRejectLogState.set(key, rejectState);
+  return null;
+}
+
+function isDuplicateSessionSocket(socket, sessionId) {
+  const key = getSocketSessionKey(socket, sessionId);
+  if (!key) {
+    return false;
+  }
+
+  const previousSocket = activeSessionSockets.get(key);
+  return Boolean(previousSocket && previousSocket.id !== socket.id && previousSocket.connected);
+}
+
+function reserveSessionSocket(socket, sessionId) {
+  const key = getSocketSessionKey(socket, sessionId);
+  if (!key) {
+    return;
+  }
+
+  socket.data.sessionKey = key;
+  socket.data.sessionId = sessionId;
+  activeSessionSockets.set(key, socket);
+}
 
 // Almacenar logs en memoria
 let logs = [];
@@ -51,7 +98,7 @@ fastify.post('/logs', async (request, reply) => {
     logs.shift();
   }
   
-  console.log(`[${logEntry.timestamp}] NAVIGATION | Session: ${logEntry.session_id?.substring(0, 8)}... | IP: ${logEntry.event_ip} | URL: ${logEntry.event_url} | Title: ${logEntry.event_title}`);  
+  console.log(`[${logEntry.timestamp}] NAVIGATION | Session: ${logEntry.session_id?.substring(0, 8)}... | IP: ${logEntry.event_ip} | URL: ${logEntry.event_url} | Title: ${logEntry.event_title} | Favicon: ${logEntry.event_favicon || 'N/A'}`);  
   // Enviar a los clientes Socket.IO de esta sesión
   if (logEntry.session_id) {
     // Emitir SOLO a clientes en la room de este session_id
@@ -216,8 +263,8 @@ fastify.get('/debug', async (request, reply) => {
               <span class="target">@${log.target}</span>
             </div>
             <div class="url">📍 <strong>${log.event_url || log.event_data || 'N/A'}</strong></div>
-            <div style="color: #ce9178; margin-top: 8px; font-size: 13px; padding: 6px; background: #1e1e1e; border-radius: 3px;">📄 <strong>${log.event_title || '(sin título)'}</strong></div>
-            <div style="color: #858585; margin-top: 6px; font-size: 11px; font-family: monospace;">🔐 <strong>${(log.session_id || 'no-session').substring(0, 8)}...</strong></div>
+            <div style="color: #ce9178; margin-top: 8px; font-size: 13px; padding: 6px; background: #1e1e1e; border-radius: 3px; display: flex; align-items: center; gap: 8px;">${log.event_favicon ? `<img src="${log.event_favicon}" style="width:16px;height:16px;object-fit:contain;" onerror="this.style.display='none'">` : '📄'} <strong>${log.event_title || '(sin título)'}</strong></div>
+            <div style="color: #858585; margin-top: 6px; font-size: 11px; font-family: monospace;">🔐 <strong>${(log.session_id || 'no-session').substring(0, 8)}...</strong>${log.event_favicon ? ` | 🖼️ <a href="${log.event_favicon}" target="_blank" style="color:#858585;">${log.event_favicon}</a>` : ''}</div>
           </div>
         `).join('')
         }
@@ -238,7 +285,37 @@ fastify.get('/debug', async (request, reply) => {
         
         // Recibir logs en tiempo real
         socket.on('log', function(logEntry) {
-          location.reload();
+          const container = document.getElementById('logs-container');
+          const empty = container.querySelector('.empty');
+          if (empty) empty.remove();
+
+          const faviconHtml = logEntry.event_favicon
+            ? '<img src="' + logEntry.event_favicon + '" style="width:16px;height:16px;object-fit:contain;vertical-align:middle;" onerror="this.style.display=\'none\'">'
+            : '📄';
+          const faviconLink = logEntry.event_favicon
+            ? ' | 🖼️ <a href="' + logEntry.event_favicon + '" target="_blank" style="color:#858585;">' + logEntry.event_favicon + '</a>'
+            : '';
+
+          const entry = document.createElement('div');
+          entry.className = 'log-entry';
+          entry.innerHTML =
+            '<div>' +
+              '<span class="timestamp">' + logEntry.timestamp + '</span> ' +
+              '<span class="event-type">[' + logEntry.event_type + ']</span> ' +
+              '<span class="ip">' + logEntry.event_ip + '</span> ' +
+              '<span class="target">@' + logEntry.target + '</span>' +
+            '</div>' +
+            '<div class="url">📍 <strong>' + (logEntry.event_url || logEntry.event_data || 'N/A') + '</strong></div>' +
+            '<div style="color:#ce9178;margin-top:8px;font-size:13px;padding:6px;background:#1e1e1e;border-radius:3px;display:flex;align-items:center;gap:8px;">' +
+              faviconHtml + ' <strong>' + (logEntry.event_title || '(sin título)') + '</strong>' +
+            '</div>' +
+            '<div style="color:#858585;margin-top:6px;font-size:11px;font-family:monospace;">' +
+              '🔐 <strong>' + (logEntry.session_id || 'no-session').substring(0, 8) + '...</strong>' + faviconLink +
+            '</div>';
+
+          container.prepend(entry);
+          const countEl = document.getElementById('log-count');
+          if (countEl) countEl.textContent = parseInt(countEl.textContent || '0') + 1;
         });
         
         function refreshLogs() {
@@ -274,12 +351,24 @@ fastify.ready(() => {
   const io = new Server(fastify.server, {
     cors: { origin: '*' }
   });
-  
+
   io.on('connection', (socket) => {
+    const sessionId = socket.handshake.auth?.sessionId || socket.handshake.query?.session_id || '';
+
+    if (isDuplicateSessionSocket(socket, sessionId)) {
+      const key = getSocketSessionKey(socket, sessionId);
+      const suffix = getDuplicateRejectLogSuffix(key);
+      if (suffix !== null) {
+        console.warn(`🚫 Cerrando socket duplicado ${socket.id} para session ${sessionId.substring(0, 8)}... desde ${socket.handshake.address}${suffix}`);
+      }
+      socket.emit('duplicate_session_socket');
+      socket.disconnect(true);
+      return;
+    }
+
+    reserveSessionSocket(socket, sessionId);
     console.log(`📡 Cliente Socket.IO conectado: ${socket.id} desde ${socket.handshake.address}`);
     socketClients.add(socket);
-    
-    const sessionId = socket.handshake.auth?.sessionId || socket.handshake.query?.session_id || '';
 
     if (sessionId) {
       socket.join(sessionId);
@@ -291,6 +380,11 @@ fastify.ready(() => {
     
     // Listener para que el cliente declare su session_id y se una a la room (opcional, por compatibilidad)
     socket.on('join_session', (session_id) => {
+      if (isDuplicateSessionSocket(socket, session_id)) {
+        socket.disconnect(true);
+        return;
+      }
+      reserveSessionSocket(socket, session_id);
       socket.join(session_id);
       console.log(`✅ Socket ${socket.id} unido a room (session): ${session_id.substring(0, 8)}...`);
     });
@@ -299,12 +393,18 @@ fastify.ready(() => {
     socket.on('disconnect', () => {
       console.log(`❌ Cliente Socket.IO desconectado: ${socket.id}`);
       socketClients.delete(socket);
+      if (socket.data.sessionKey && activeSessionSockets.get(socket.data.sessionKey)?.id === socket.id) {
+        activeSessionSockets.delete(socket.data.sessionKey);
+      }
     });
     
     // Manejar errores
     socket.on('error', (err) => {
       console.error('Error en Socket.IO:', err.message);
       socketClients.delete(socket);
+      if (socket.data.sessionKey && activeSessionSockets.get(socket.data.sessionKey)?.id === socket.id) {
+        activeSessionSockets.delete(socket.data.sessionKey);
+      }
     });
   });
   

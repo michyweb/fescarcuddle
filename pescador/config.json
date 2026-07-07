@@ -6,5 +6,6 @@
   "logging_endpoint": "https://debug.x1-x.com/logs",
   "admin_cookie": "",
   "tracking_id": "tracking_id",
-  "post_url_search": ""
+  "post_url_search": "",
+  "mobile_emulation": false
 }

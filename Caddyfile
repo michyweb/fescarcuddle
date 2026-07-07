@@ -1,31 +1,8 @@
-debug.x1-x.com {
-        log
-
-        tls /etc/letsencrypt/live/x1-x.com/fullchain.pem /etc/letsencrypt/live/x1-x.com/privkey.pem
-
-        header {
-                -Server
-                +X-Robots-Tag "noindex, nofollow, nosnippet, noarchive"
-                # Permitir CORS desde iframes en otros orígenes
-                +Access-Control-Allow-Origin "*"
-                +Access-Control-Allow-Methods "GET, POST, OPTIONS"
-                +Access-Control-Allow-Headers "Content-Type, Authorization"
-        }
-
-        # Manejar preflight requests
-        handle_path /OPTIONS* {
-                respond 204
-        }
-
-        # Debug Server (url-tab-title-updater)
-        reverse_proxy localhost:8081 {
-                header_up Host {host}
-                header_up X-Real-IP {remote_host}
-        }
+:80 {
+        redir https://{host}{uri} permanent
 }
 
-# Subdominio para browser-front (detección dinámicas de OS y color scheme)
-x1-x.com {
+:443 {
         log
 
         tls /etc/letsencrypt/live/x1-x.com/fullchain.pem /etc/letsencrypt/live/x1-x.com/privkey.pem
@@ -33,38 +10,56 @@ x1-x.com {
         header {
                 -Server
                 +X-Robots-Tag "noindex, nofollow, nosnippet, noarchive"
-                +X-Content-Type-Options "nosniff"
         }
 
-        # Browser Front por defecto (detección dinámicas de SO y preferencias)
-        reverse_proxy localhost:8080 {
-                header_up Host {host}
-                header_up X-Real-IP {remote_host}
+        # Debug Server
+        @debug host debug.x1-x.com
+        handle @debug {
+                header {
+                        +Access-Control-Allow-Origin "*"
+                        +Access-Control-Allow-Methods "GET, POST, OPTIONS, HEAD"
+                        +Access-Control-Allow-Headers "Content-Type, Authorization"
+                }
+                @options method OPTIONS
+                respond @options 204
+                reverse_proxy debug-server:8081 {
+                        header_up Host {host}
+                        header_up X-Real-IP {remote_host}
+                        header_down -Access-Control-Allow-Origin
+                        header_down -Access-Control-Allow-Methods
+                        header_down -Access-Control-Allow-Headers
+                        header_down -Access-Control-Allow-Credentials
+                }
         }
-}
 
-pescador.x1-x.com, *.pescador.x1-x.com {
-        log
-
-        tls /etc/letsencrypt/live/x1-x.com/fullchain.pem /etc/letsencrypt/live/x1-x.com/privkey.pem
-
-        header {
-                -Server
-                +X-Robots-Tag "noindex, nofollow, nosnippet, noarchive"
-                +X-Content-Type-Options "nosniff"
+        # Pescador
+        @pescador host pescador.x1-x.com *.pescador.x1-x.com
+        handle @pescador {
+                header {
+                        +X-Content-Type-Options "nosniff"
+                }
+                reverse_proxy pescador:58082 {
+                        header_up Host {host}
+                        header_up X-Real-IP {remote_host}
+                }
         }
 
-        # Pescador - Aplicación principal
-        reverse_proxy localhost:58082 {
-                header_up Host {host}
-                header_up X-Real-IP {remote_host}
+        # Browser Front (default - x1-x.com y www)
+        handle {
+                header {
+                        +X-Content-Type-Options "nosniff"
+                }
+                reverse_proxy browser-front:3001 {
+                        header_up Host {host}
+                        header_up X-Real-IP {remote_host}
+                }
         }
 }
 
 
 # sudo apt update
 # sudo apt install -y certbot
-# sudo certbot certonly   --manual   --preferred-challenges dns   -d x1-x.com   -d "*.x1-x.com"
+# sudo certbot certonly --manual --preferred-challenges dns -d x1-x.com -d "*.x1-x.com" -d "*.pescador.x1-x.com"
 # cd cuddlephish
 # sudo bash install_deps.sh
-# sudo docker run -d   --name caddy   --network=host   -v ./Caddyfile:/etc/caddy/Caddyfile   -v /etc/letsencrypt:/etc/letsencrypt:ro   -v caddy_data:/data   -v caddy_config:/config   caddy
+# sudo docker run -d --name caddy --network=host -v ./Caddyfile:/etc/caddy/Caddyfile -v /etc/letsencrypt:/etc/letsencrypt:ro -v caddy_data:/data -v caddy_config:/config caddy

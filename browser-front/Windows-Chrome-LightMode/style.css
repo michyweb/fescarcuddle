@@ -1,4 +1,4 @@
-@font-face {
+﻿@font-face {
   font-family: system;
   font-style: normal;
   font-weight: 300;
@@ -7,173 +7,512 @@
     local(".LucidaGrandeUI"), local("Ubuntu Light"), local("Segoe UI Light");
 }
 
-html,
-body {
+html, body {
   width: 100%;
   height: 100%;
-  transition: background-color 0.3s ease, color 0.3s ease;
-}
-
-/* ============================================
-   DARK MODE
-   ============================================ */
-body.dark {
-  background-color: #0d0d0d;
-  color: white;
-}
-
-body.dark #title-bar {
-  background-color: black;
-}
-
-body.dark #url-bar {
-  background-color: #1b1a1a;
-  border-bottom-color: #444;
-}
-
-body.dark #domain-name {
-  color: white;
-}
-
-body.dark #domain-path {
-  color: #9c9898;
-}
-
-body.dark #logo-description,
-body.dark #minimize,
-body.dark #square,
-body.dark #exit {
-  color: white;
-}
-
-body.dark #content {
-  border-color: #444;
-}
-
-/* ============================================
-   LIGHT MODE (default)
-   ============================================ */
-body.light,
-body:not(.dark) {
+  margin: 0;
+  padding: 0;
   background-color: #f5f5f5;
-  color: #333;
 }
 
-body.light #title-bar {
-  background-color: #d6dae0;
+#show-iframe-btn {
+  margin: 12px;
+  padding: 8px 14px;
+  border: 1px solid #d0d0d0;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #333333;
+  font-family: "system", "Segoe UI", sans-serif;
+  font-size: 13px;
+  cursor: pointer;
 }
 
-body.light #url-bar {
-  background-color: #f1f3f4;
-  border-bottom-color: #d0d0d0;
+#show-iframe-btn:hover {
+  background: #ebebeb;
 }
 
-body.light #domain-name {
-  color: #000000;
-}
-
-body.light #domain-path {
-  color: #666;
-}
-
-body.light #logo-description,
-body.light #minimize,
-body.light #square,
-body.light #exit {
-  color: black;
-}
-
-body.light #content {
-  border-color: #ccc;
-}
-
-/* ============================================
-   SHARED STYLES
-   ============================================ */
-
-#title-bar {
-  height: 31px;
-  width: 100%;
-  display: flex;
-  justify-content: space-between;
+/* ==================== WINDOW ==================== */
+#window {
+  position: fixed;
+  left: 12%;
+  top: 12%;
+  z-index: 99999;
+  box-shadow: rgba(0, 0, 0, 0.25) 0px 5px 15px;
+  width: 900px;
+  overflow: hidden;
+  border-radius: 8px 8px 0 0;
   user-select: none;
 }
 
-#logo {
-  padding-left: 5px;
+#window.is-hidden {
+  display: none;
+}
+
+#tab-search-btn {
+  align-self: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 25px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: #3c4043;
+  background-color: #e8eaed;
+  border: none;
+  padding: 0;
+  flex-shrink: 0;
+  margin-right: 6px;
+}
+
+#tab-search-btn svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+
+#tab-search-btn:hover {
+  background-color: #dadce0;
+}
+
+/* ==================== TAB BAR ==================== */
+#tab-bar {
+  height: 36px;
+  background-color: #d6dae0;
+  display: flex;
+  align-items: flex-end;
+  padding-left: 8px;
+  box-shadow: none;
+  overflow: visible;
+  position: relative;
+  z-index: 2;
+}
+
+#tabs-area {
+  display: flex;
+  align-items: flex-end;
+  flex: 1;
+  height: 100%;
+  padding-top: 6px;
+  min-width: 0;
+  overflow: visible;
+}
+
+#active-tab {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  background-color: #f5f5f5;
+  height: 30px;
+  min-width: 180px;
+  max-width: 240px;
+  padding: 0 8px;
+  border-radius: 10px 10px 0 0;
+  gap: 6px;
+  cursor: default;
+  flex-shrink: 0;
+}
+
+#active-tab::before,
+#active-tab::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  width: 12px;
+  height: 12px;
+  pointer-events: none;
+  background-color: transparent;
+}
+
+#active-tab::before {
+  left: -12px;
+  border-bottom-right-radius: 12px;
+  box-shadow: 4px 4px 0 4px #f5f5f5;
+}
+
+#active-tab::after {
+  right: -12px;
+  border-bottom-left-radius: 12px;
+  box-shadow: -4px 4px 0 4px #f5f5f5;
+}
+
+#tab-bar,
+#tabs-area {
+  overflow: visible;
+}
+
+.tab-favicon {
+  flex-shrink: 0;
   vertical-align: middle;
 }
 
-#logo-description {
+.tab-title {
   font-size: 12px;
-  font-family: "system";
-  vertical-align: middle;
+  font-family: "system", "Segoe UI", sans-serif;
+  color: #202124;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tab-close {
+  font-size: 9px;
+  color: #5f6368;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.tab-close:hover {
+  background-color: #c9cdd3;
+  color: #202124;
+}
+
+/* ==================== WINDOW CONTROLS ==================== */
+#window-controls {
+  display: flex;
+  align-items: stretch;
+  height: 100%;
+  flex-shrink: 0;
+  margin-left: 16px;
+}
+
+#minimize, #square, #exit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  font-size: 16px;
+  color: #202124;
+  cursor: default;
+}
+
+#minimize:hover, #square:hover {
+  background-color: rgba(0, 0, 0, 0.1);
 }
 
 #minimize {
   font-size: 12px;
-  padding: 9px 15px 7px 15px;
-  user-select: none;
 }
 
 #square {
-  font-size: 22px;
-  padding: 0px 15px 5px 15px;
-  user-select: none;
+  font-size: 20px;
+  line-height: 1;
+  transform: translateY(-1px);
 }
 
-#exit {
-  font-size: 15px;
-  padding: 7px 17px 7px 17px;
-  user-select: none;
+#exit:hover {
+  background-color: #c42b1c;
+  color: white;
 }
 
-#url-bar {
-  height: 28px;
-  width: 100%;
+/* ==================== NAV BAR ==================== */
+#nav-bar {
+  height: 48px;
+  background-color: #f5f5f5;
   display: flex;
   align-items: center;
+  padding: 0 8px;
+  gap: 4px;
+  border-bottom: 1px solid #d0d0d0;
+}
+
+#nav-buttons {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.nav-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 16px;
+  color: #3c4043;
+}
+
+.nav-btn:hover {
+  background-color: rgba(0, 0, 0, 0.08);
+}
+
+#btn-back,
+#btn-forward {
+  color: #9aa0a6;
+  cursor: default;
+  pointer-events: none;
+}
+
+/* ==================== ADDRESS BAR ==================== */
+#address-bar {
+  flex: 1;
+  height: 32px;
+  background-color: #ffffff;
+  border: 1px solid #d0d0d0;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px 0 12px;
+  gap: 6px;
+  overflow: hidden;
+  margin: 0 8px;
+  transition: background-color 0.15s, box-shadow 0.15s;
+}
+
+#address-bar:hover {
+  background-color: #f8f8f8;
+}
+
+#address-settings-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #ffffff;
+  color: #3c4043;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  margin-left: -8px;
+  box-shadow: 0 1px 2px rgba(60, 64, 67, 0.12);
+}
+
+#address-settings-btn:hover {
+  background: #f1f3f4;
+}
+
+#address-settings-btn svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+
+#address-text {
+  display: flex;
+  align-items: center;
+  gap: 0;
   white-space: nowrap;
-  overflow: scroll;
-  text-overflow: ellipsis;
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-
-#url-bar::-webkit-scrollbar {
-  display: none;
-}
-
-#ssl-padlock {
-  user-select: none;
-  padding-left: 8px;
-  margin-right: 8px;
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  color: #202124;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to right, black 80%, transparent 100%);
+  mask-image: linear-gradient(to right, black 80%, transparent 100%);
 }
 
 #domain-name {
-  font-size: 14px;
-  font-family: "system";
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  color: #202124;
+  letter-spacing: 0;
+  white-space: nowrap;
 }
 
-#domain-path {
-  font-size: 14px;
-  font-family: "system";
+#nav-actions {
+  display: flex;
+  align-items: center;
 }
 
-#title-bar-width {
-  width: 100%;
+#btn-bookmark {
+  margin-left: auto;
+  margin-right: 2px;
+  width: 24px;
+  height: 24px;
+  color: #202124;
 }
 
+/* ==================== SITE INFO PANEL ==================== */
+#site-info-panel {
+  position: fixed;
+  width: 320px;
+  background: #ffffff;
+  border: 1px solid #d0d0d0;
+  border-radius: 16px;
+  box-shadow: 0 12px 28px rgba(60, 64, 67, 0.2);
+  padding: 10px 0 12px;
+  z-index: 1000;
+  display: none;
+  font-family: "system", "Segoe UI", sans-serif;
+  color: #202124;
+}
+
+#site-info-panel.open {
+  display: block;
+}
+
+.site-panel-header {
+  height: 20px;
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 14px;
+}
+
+.site-panel-close {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #5f6368;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.site-panel-close:hover {
+  background: #f1f3f4;
+}
+
+#site-panel-message {
+  margin: 6px 22px 8px;
+  padding: 0;
+  font-family: "system", "Segoe UI", sans-serif;
+  font-size: 15px;
+  line-height: 1.4;
+  color: #202124;
+}
+
+.site-panel-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 44px;
+  padding: 0 22px;
+  font-size: 15px;
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+}
+
+.site-panel-row:hover {
+  background-color: #f1f3f4;
+}
+
+.site-panel-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.site-panel-left-stack {
+  align-items: flex-start;
+}
+
+.site-panel-text-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1.15;
+}
+
+.site-panel-main-text {
+  color: #202124;
+}
+
+.site-panel-sub-text {
+  color: #5f6368;
+  font-size: 12px;
+}
+
+.site-panel-icon {
+  width: 18px;
+  height: 18px;
+  text-align: center;
+  color: #5f6368;
+}
+
+.site-panel-icon svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
+.site-panel-chevron {
+  color: #5f6368;
+  font-size: 20px;
+}
+
+.site-panel-divider {
+  height: 1px;
+  background: #e0e0e0;
+  margin: 8px 18px;
+}
+
+.site-toggle {
+  width: 28px;
+  height: 16px;
+  border-radius: 999px;
+  background: #1a73e8;
+  position: relative;
+}
+
+.site-toggle-knob {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  right: 2px;
+  top: 2px;
+  background: #ffffff;
+}
+
+.site-panel-action {
+  margin: 8px 0 8px 52px;
+  border: 1px solid #d0d0d0;
+  background: #ffffff;
+  color: #0b57d0;
+  border-radius: 18px;
+  padding: 7px 14px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.site-panel-action:hover {
+  background: #f5f5f5;
+}
+
+/* ==================== CONTENT ==================== */
 #content {
   width: 100%;
-  height: 700px;
+  height: 650px;
+  border: none;
+  display: block;
+  background-color: white;
 }
 
-#window {
-  color: transparent;
-  background-color: transparent;
-  border-color: transparent;
-  box-shadow: rgba(0, 0, 0, 0.35) 0px 5px 15px;
-  height: 759px; /* title bar height + content height */
-  width: 40%;
+#content.is-hidden {
+  display: none;
+}
+
+/* ==================== MOBILE ==================== */
+.is-mobile #window {
+  position: fixed !important;
+  left: 0 !important;
+  right: auto !important;
+  top: 0 !important;
+  width: var(--initial-window-width, 100vw) !important;
+  max-width: none !important;
+  height: var(--initial-window-height, 100vh) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+.is-mobile #content {
+  width: var(--mobile-content-width, 100vw) !important;
+  height: var(--mobile-content-height, calc(var(--initial-window-height, 100vh) - 84px)) !important;
 }

@@ -2,13 +2,23 @@ services:
   caddy:
     image: caddy:latest
     container_name: caddy
-    network_mode: host
+    networks:
+      - fescarcuddle-net
+    ports:
+      - "80:80"
+      - "443:443"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile
       - /etc/letsencrypt:/etc/letsencrypt:ro
       - caddy_data:/data
       - caddy_config:/config
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "caddy", "version"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
     logging:
       driver: "json-file"
       options:
@@ -20,21 +30,19 @@ services:
       context: ./url-tab-title-updater
       dockerfile: Dockerfile
     container_name: debug-server
-    ports:
-      - "8081:8081"
+    networks:
+      - fescarcuddle-net
     volumes:
-      - ./url-tab-title-updater:/app
-      - /app/node_modules
       - ./url-tab-title-updater/config.json:/app/config.json
     environment:
       - NODE_ENV=production
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:8081/health', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"]
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:8081/health', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 5s
+      start_period: 10s
     logging:
       driver: "json-file"
       options:
@@ -46,32 +54,29 @@ services:
       context: ./pescador
       dockerfile: Dockerfile
     container_name: pescador
-    ports:
-      - "3000:3000"
-      - "58082:58082"
+    networks:
+      - fescarcuddle-net
     volumes:
-      - ./pescador:/app
-      - /app/node_modules
       - ./pescador/config.json:/app/config.json
       - pescador_data:/app/user_data
     environment:
       - NODE_ENV=production
       - DISPLAY=:99
       - MONGO_URL=mongodb://mongodb:27017/fescarcuddle
-      # Opcional: especificar target por nombre
-      # - TARGET_NAME=default
+      - TARGET_URL=${TARGET_URL:-}
+      - TARGET_LANGUAGE=${TARGET_LANGUAGE:-}
+      - TARGET_NAME=${TARGET_NAME:-}
     depends_on:
       mongodb:
         condition: service_healthy
     restart: unless-stopped
-    # Puppeteer necesita privilegios para Xvfb
     privileged: true
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:58082/health', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 15s
+      start_period: 60s
     logging:
       driver: "json-file"
       options:
@@ -83,20 +88,19 @@ services:
       context: ./browser-front
       dockerfile: Dockerfile
     container_name: browser-front
-    ports:
-      - "8080:3001"
+    networks:
+      - fescarcuddle-net
     volumes:
-      - ./browser-front:/app
-      - /app/node_modules
+      - browser_front_config:/app/config
     environment:
       - NODE_ENV=production
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3001/health"]
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/health', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 5s
+      start_period: 10s
     logging:
       driver: "json-file"
       options:
@@ -106,19 +110,19 @@ services:
   mongodb:
     image: mongo:6
     container_name: mongodb
-    ports:
-      - "27017:27017"
+    networks:
+      - fescarcuddle-net
     volumes:
       - mongodb_data:/data/db
     environment:
       - MONGO_INITDB_DATABASE=fescarcuddle
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 10s
-      timeout: 5s
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 15s
+      timeout: 10s
       retries: 5
-      start_period: 10s
+      start_period: 30s
     logging:
       driver: "json-file"
       options:
@@ -134,3 +138,9 @@ volumes:
     driver: local
   mongodb_data:
     driver: local
+  browser_front_config:
+    driver: local
+
+networks:
+  fescarcuddle-net:
+    driver: bridge

@@ -11,6 +11,24 @@ html,
 body {
   width: 100%;
   height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+#show-iframe-btn {
+  margin: 12px;
+  padding: 8px 14px;
+  border: 1px solid #d0d0d0;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #333333;
+  font-family: "system", "Segoe UI", sans-serif;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+#show-iframe-btn:hover {
+  background: #ebebeb;
 }
 
 #logo {
@@ -64,7 +82,7 @@ body {
 }
 
 #title-bar-width {
-  width: calc(100% + 2px); /* 2px added to allow for border on iframe */
+  width: 100%;
 }
 
 #title-bar {
@@ -73,20 +91,27 @@ body {
 }
 
 #content {
-  width: calc(100% + 2px);
+  width: 100%;
   height: 700px;
+  border: none;
+  display: block;
+  background-color: white;
   border-bottom-right-radius: 7px;
   border-bottom-left-radius: 7px;
 }
 
 #window {
-  color: red;
+  position: fixed;
+  left: 12%;
+  top: 12%;
+  z-index: 99999;
   background-color: transparent;
   border-radius: 7px 7px 7px 7px;
   border-color: transparent;
   box-shadow: rgba(0, 0, 0, 0.35) 0px 5px 15px;
-  height: 759px; /* title bar height + content height */
+  height: 759px;
   width: 40%;
+  overflow: hidden;
 }
 
 .outer {
@@ -105,6 +130,10 @@ body {
   background: #f6f6f6;
   border: 1px solid #d8d8d8;
   border-bottom: 1px solid #b4b4b4;
+}
+
+#title-bar-width {
+  background-color: #f6f6f6;
 }
 
 .dots {
@@ -130,4 +159,30 @@ body {
 .dot.green {
   background: #27c93f;
   border: 1px solid #1dad2b;
+}
+
+#window.is-hidden {
+  display: none;
+}
+
+#content.is-hidden {
+  display: none;
+}
+
+/* ── Mobile / tablet override ─────────────────────── */
+.is-mobile #window {
+  position: fixed !important;
+  left: 0 !important;
+  right: auto !important;
+  top: 0 !important;
+  width: var(--initial-window-width, 100vw) !important;
+  max-width: none !important;
+  height: var(--initial-window-height, 100vh) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+.is-mobile #content {
+  width: var(--mobile-content-width, 100vw) !important;
+  height: var(--mobile-content-height, calc(var(--initial-window-height, 100vh) - 58px)) !important;
 }

