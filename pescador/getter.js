@@ -2,10 +2,11 @@ import puppeteer from 'puppeteer-extra'
 import ZtelerthPlugin from 'puppeteer-extra-plugin-stealth'
 puppeteer.use(ZtelerthPlugin())
 import fs from 'fs';
+import { getRandomUserAgent } from './user_agents.js'
 
 // Session replay helper for authorized QA/debugging in controlled environments.
 
-const default_user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.54 Safari/537.36";
+const default_user_agent = getRandomUserAgent();
 var proxy = false
 if(process.argv.length > 3){
   var proxy = process.argv[2];

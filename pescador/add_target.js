@@ -7,10 +7,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 import mongoose from 'mongoose'
 import { Target } from './models/Target.js'
+import { getRandomUserAgent } from './user_agents.js'
 
 puppeteer.use(ZtelerthPlugin())
 
-const default_user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.54 Safari/537.36";
+const default_user_agent = getRandomUserAgent();
 
 var captured_favicon = false;
 var desperate = false;

@@ -13,6 +13,7 @@ import resize_window from './resize_window.js'
 import replace from 'stream-replace'
 import Xvfb from 'xvfb'
 import { Target } from './models/Target.js'
+import { getRandomMobileUserAgent, getRandomUserAgent } from './user_agents.js'
 
 //import admin config
 const config = JSON.parse(fs.readFileSync('./config.json', 'utf8'));
@@ -702,6 +703,8 @@ let ship_logs = null;
     browser.frameNavigationListenerAttached = false
     browser.keydebug_file = fs.createWriteStream(`./user_data/${browser_id}/keydebug.txt`, { flags: 'a' });
     browser.browser_id = browser_id
+    browser.user_agent = getRandomUserAgent()
+    browser.mobile_user_agent = getRandomMobileUserAgent()
     browser.target_page = await browser.newPage()
     await installMobileViewportGuards(browser.target_page)
     if (config.mobile_emulation) {
@@ -714,8 +717,10 @@ let ship_logs = null;
           hasTouch: true,
           isLandscape: false
         },
-        userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1'
+        userAgent: browser.mobile_user_agent
       })
+    } else {
+      await browser.target_page.setUserAgent(browser.user_agent)
     }
     await browser.target_page.setExtraHTTPHeaders({ 'Accept-Language': target_language_header })
     await browser.target_page.evaluateOnNewDocument((lang) => {
@@ -726,7 +731,7 @@ let ship_logs = null;
         // Ignore when browser prevents overriding navigator properties.
       }
     }, target_primary_language)
-    //browser.target_page.setUserAgent(config.default_user_agent)
+    console.log(`[BROWSER ${browser_id}] user agent: ${browser.user_agent}`)
     //automatically dismiss alerts etc.
     browser.target_page.on('dialog', async dialog => {
       console.log(dialog.message())
@@ -821,7 +826,7 @@ let ship_logs = null;
                 hasTouch: true,
                 isLandscape: false
               },
-              userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1'
+              userAgent: empty_fescarbowl.mobile_user_agent
             })
           } else {
             await resize_window(empty_fescarbowl, empty_fescarbowl.target_page, request.viewport_width, request.viewport_height)
@@ -1118,7 +1123,7 @@ let ship_logs = null;
           if (browser.is_mobile) {
             await browser.target_page.emulate({
               viewport: { width: w, height: h, deviceScaleFactor: 3, isMobile: false, hasTouch: true, isLandscape: false },
-              userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1'
+              userAgent: browser.mobile_user_agent
             })
           } else {
             const vp = browser.target_page.viewport()

@@ -42,6 +42,7 @@ html, body {
   overflow: hidden;
   border-radius: 8px 8px 0 0;
   user-select: none;
+  background-color: #d6dae0;
 }
 
 #window.is-hidden {
@@ -222,6 +223,7 @@ html, body {
   padding: 0 8px;
   gap: 4px;
   border-bottom: 1px solid #d0d0d0;
+  border-radius: 10px 10px 0 0;
 }
 
 #nav-buttons {

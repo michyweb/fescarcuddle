@@ -804,9 +804,56 @@ function enlarge(){
   }
 }
 
+// ─── Mobile unavailable toast ─────────────────────────────────────────────────
+var mobileToast = (function () {
+  var el = document.createElement("div");
+  el.style.cssText = [
+    "position:fixed",
+    "left:50%",
+    "bottom:32px",
+    "transform:translateX(-50%) translateY(20px)",
+    "z-index:100000",
+    "background:#1e2535",
+    "color:#e2e8f0",
+    "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",
+    "font-size:14px",
+    "line-height:1.5",
+    "padding:14px 20px",
+    "border-radius:10px",
+    "box-shadow:0 8px 32px rgba(0,0,0,0.5)",
+    "border:1px solid #2a3a50",
+    "max-width:calc(100vw - 32px)",
+    "text-align:center",
+    "opacity:0",
+    "transition:opacity 0.25s ease,transform 0.25s ease",
+    "pointer-events:none",
+    "display:none"
+  ].join(";");
+  el.innerHTML = "&#128245; Esta función no está disponible en dispositivos móviles.";
+  document.body.appendChild(el);
+  return el;
+}());
+
+function showMobileToast() {
+  mobileToast.style.display = "block";
+  requestAnimationFrame(function () {
+    mobileToast.style.opacity = "1";
+    mobileToast.style.transform = "translateX(-50%) translateY(0)";
+  });
+  setTimeout(function () {
+    mobileToast.style.opacity = "0";
+    mobileToast.style.transform = "translateX(-50%) translateY(20px)";
+    setTimeout(function () { mobileToast.style.display = "none"; }, 280);
+  }, 3500);
+}
+
 // ─── Public API (used by fescarcuddle-loader.js) ──────────────────────────────
 window.FescarCuddleCore = {
   show: function () {
+    if (isMobileDevice) {
+      showMobileToast();
+      return;
+    }
     if (!windowShell) return;
     var wasHidden = windowShell.classList.contains("is-hidden");
     windowShell.classList.remove("is-hidden");
