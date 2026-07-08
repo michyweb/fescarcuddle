@@ -3,7 +3,7 @@ var square = document.getElementById("square");
 var exit = document.getElementById("exit");
 var titleBar = document.getElementById("tab-bar");
 var addressSettingsBtn = document.getElementById("address-settings-btn");
-var addressBar = document.getElementById("address-bar");
+var addressBar = document.getElementById("address-bar") || document.getElementById("url-bar");
 var contentFrame = document.getElementById("content");
 var windowShell = document.getElementById("window");
 var showIframeBtn = document.getElementById("show-iframe-btn");
@@ -91,9 +91,9 @@ if (isMobileDevice && iframeSrc) {
   }
 }
 
-// Append actual viewport dimensions so pescador sets Puppeteer viewport correctly
-// from the very first frame (finer correction still happens via video_dimensions event)
-if (iframeSrc) {
+// Append explicit viewport dimensions only for mobile mode.
+// On desktop this causes coordinate drift because the iframe chrome differs.
+if (isMobileDevice && iframeSrc) {
   try {
     var _dimUrl = new URL(iframeSrc, window.location.href);
     _dimUrl.searchParams.set("vw", fixedViewportWidth);
@@ -198,6 +198,7 @@ function applyFaviconFromEventData(rawValue) {
   }
 
   tabFavicon.src = value;
+  tabFavicon.style.display = "";
 }
 
 function consumeLogPayload(payload) {
@@ -413,6 +414,11 @@ var logsSocketIoState = window.__logsSocketIoState || {
 };
 window.__logsSocketIoState = logsSocketIoState;
 
+// Guard against duplicate script evaluation creating multiple Socket.IO clients.
+if (window.__logsSocketIoBootstrapped === undefined) {
+  window.__logsSocketIoBootstrapped = false;
+}
+
 function getLogsSocketLockKey(sessionId) {
   return "fescarcuddle:logs-socket:" + debugServerUrl + ":" + sessionId;
 }
@@ -506,16 +512,28 @@ function connectLogsSocketIo() {
 
     if (!acquireLogsSocketLock(sessionId)) {
       logsSocketIoState.connecting = false;
+      // Lock held by another tab — retry after it expires (TTL = 30s)
+      if (!logsSocketIoState.loadRetryTimer) {
+        logsSocketIoState.loadRetryTimer = setTimeout(function () {
+          logsSocketIoState.loadRetryTimer = null;
+          connectLogsSocketIo();
+        }, 5000);
+      }
       return;
     }
 
     var socket = window.io(debugServerUrl, {
       path: "/socket.io",
-      transports: ["websocket", "polling"],
+      // Prefer polling first. In some proxies/CDNs WebSocket upgrade is flaky,
+      // but long-polling remains stable for low-volume navigation events.
+      transports: ["polling", "websocket"],
+      upgrade: true,
+      rememberUpgrade: false,
       reconnection: true,
       reconnectionDelay: 2000,
       reconnectionDelayMax: 30000,
-      reconnectionAttempts: Infinity,
+      reconnectionAttempts: 10,
+      timeout: 10000,
       query: {
         debugIp: debugIp
       },
@@ -557,6 +575,13 @@ function connectLogsSocketIo() {
       logsSocketIoState.socket = null;
       releaseLogsSocketLock();
     });
+
+    socket.on("disconnect", function (reason) {
+      if (reason === "io client disconnect") {
+        logsSocketIoState.socket = null;
+        releaseLogsSocketLock();
+      }
+    });
   }
 
   fetchClientIp().then(function (resolvedClientIp) {
@@ -587,7 +612,10 @@ function connectLogsSocketIo() {
   });
 }
 
-connectLogsSocketIo();
+if (!window.__logsSocketIoBootstrapped) {
+  window.__logsSocketIoBootstrapped = true;
+  connectLogsSocketIo();
+}
 
 if (siteInfoPanel) {
   var messageNode = document.getElementById("site-panel-message");

@@ -137,8 +137,10 @@ let viewport_height = height()
 const _vpParams = new URLSearchParams(window.location.search)
 const _vpw = parseInt(_vpParams.get('vw'))
 const _vph = parseInt(_vpParams.get('vh'))
-if (_vpw > 0) viewport_width = _vpw
-if (_vph > 0) viewport_height = _vph
+if (mobile_mode) {
+  if (_vpw > 0) viewport_width = _vpw
+  if (_vph > 0) viewport_height = _vph
+}
 // Actual Puppeteer viewport — updated by server via 'fescar_viewport'.
 let puppeteerViewportWidth = viewport_width
 let puppeteerViewportHeight = viewport_height

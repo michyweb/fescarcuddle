@@ -19,6 +19,10 @@ var super_desperate = false;
 var favicon_url = '';
 
 (async () => {
+  const puppeteerDebugRaw = `${process.env.PUPPETEER_DEBUG || ''}`
+  const isPuppeteerDebugEnabled = puppeteerDebugRaw.trim().toLowerCase() === 'true'
+  console.log(`[ADD_TARGET] PUPPETEER_DEBUG raw='${puppeteerDebugRaw}' enabled=${isPuppeteerDebugEnabled}`)
+
   // MongoDB connection
   const mongoUrl = process.env.MONGO_URL || 'mongodb://mongodb:27017/fescarcuddle';
   
@@ -69,15 +73,29 @@ var favicon_url = '';
     puppet_options.push(`--lang=${primary_language}`)
   }
 
+  if (isPuppeteerDebugEnabled) {
+    puppet_options.push('--remote-debugging-address=0.0.0.0')
+    puppet_options.push('--remote-debugging-host=0.0.0.0')
+    puppet_options.push('--remote-debugging-port=9222')
+  }
+
+  const ignoreDefaultArgs = ["--enable-automation"]
+  if (isPuppeteerDebugEnabled) {
+    ignoreDefaultArgs.push('--remote-debugging-port=0')
+    console.log(`[ADD_TARGET] ignoreDefaultArgs=${JSON.stringify(ignoreDefaultArgs)}`)
+    console.log(`[ADD_TARGET] remoteDebugArgs=${JSON.stringify(puppet_options.filter((arg) => arg.startsWith('--remote-debugging-')))}`)
+  }
+
   const browser = await puppeteer.launch({
-    headless: "new",
+    headless: isPuppeteerDebugEnabled ? false : "new",
     ignoreHTTPSErrors: true,
-    ignoreDefaultArgs: ["--enable-automation"],
+    ignoreDefaultArgs,
     defaultViewport: null,
     args: puppet_options
   });
 
   const page = await browser.newPage();
+  await page.setBypassCSP(true)
   await page.setUserAgent(default_user_agent)
   await page.setCacheEnabled(false);
   await page.setExtraHTTPHeaders({ 'Accept-Language': language_header })
@@ -176,6 +194,7 @@ var favicon_url = '';
       tab_title: title,
       favicon: `${short_name}.ico`,
       language: language_header,
+      user_agent: default_user_agent,
       payload: `payload.txt`,
     };
 

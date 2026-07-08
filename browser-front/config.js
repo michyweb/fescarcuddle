@@ -8,7 +8,7 @@ window.appConfig = {
   // Cuando event_url coincida con matchUrl se aplican todos los valores match* siguientes.
   matchUrl: "/",
   matchIframeSrc: "/autenticado.html",
-  matchAddressText: "https://x1.x.com/login",
+  matchAddressText: "https://x1-x.com/login",
   matchTabTitle: "Autenticado",
   matchFavicon: "/favicon.svg",
   // Segundos tras los que se cierra la ventana (0 = nunca).

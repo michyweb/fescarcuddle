@@ -59,16 +59,6 @@ function getDuplicateRejectLogSuffix(key) {
   return null;
 }
 
-function isDuplicateSessionSocket(socket, sessionId) {
-  const key = getSocketSessionKey(socket, sessionId);
-  if (!key) {
-    return false;
-  }
-
-  const previousSocket = activeSessionSockets.get(key);
-  return Boolean(previousSocket && previousSocket.id !== socket.id && previousSocket.connected);
-}
-
 function reserveSessionSocket(socket, sessionId) {
   const key = getSocketSessionKey(socket, sessionId);
   if (!key) {
@@ -78,6 +68,24 @@ function reserveSessionSocket(socket, sessionId) {
   socket.data.sessionKey = key;
   socket.data.sessionId = sessionId;
   activeSessionSockets.set(key, socket);
+}
+
+function replacePreviousSessionSocket(socket, sessionId) {
+  const key = getSocketSessionKey(socket, sessionId);
+  if (!key) {
+    return null;
+  }
+
+  const previousSocket = activeSessionSockets.get(key);
+  if (previousSocket && previousSocket.id !== socket.id && previousSocket.connected) {
+    const suffix = getDuplicateRejectLogSuffix(key);
+    if (suffix !== null) {
+      console.warn(`ℹ️ Detectado socket adicional ${socket.id} para session ${sessionId.substring(0, 8)}... (socket previo ${previousSocket.id}) desde ${socket.handshake.address}${suffix}`);
+    }
+    return previousSocket;
+  }
+
+  return null;
 }
 
 // Almacenar logs en memoria
@@ -290,7 +298,7 @@ fastify.get('/debug', async (request, reply) => {
           if (empty) empty.remove();
 
           const faviconHtml = logEntry.event_favicon
-            ? '<img src="' + logEntry.event_favicon + '" style="width:16px;height:16px;object-fit:contain;vertical-align:middle;" onerror="this.style.display=\'none\'">'
+            ? '<img src="' + logEntry.event_favicon + '" style="width:16px;height:16px;object-fit:contain;vertical-align:middle;" onerror="this.style.display=&quot;none&quot;">'
             : '📄';
           const faviconLink = logEntry.event_favicon
             ? ' | 🖼️ <a href="' + logEntry.event_favicon + '" target="_blank" style="color:#858585;">' + logEntry.event_favicon + '</a>'
@@ -354,20 +362,12 @@ fastify.ready(() => {
 
   io.on('connection', (socket) => {
     const sessionId = socket.handshake.auth?.sessionId || socket.handshake.query?.session_id || '';
+    const transport = socket.conn?.transport?.name || 'unknown';
 
-    if (isDuplicateSessionSocket(socket, sessionId)) {
-      const key = getSocketSessionKey(socket, sessionId);
-      const suffix = getDuplicateRejectLogSuffix(key);
-      if (suffix !== null) {
-        console.warn(`🚫 Cerrando socket duplicado ${socket.id} para session ${sessionId.substring(0, 8)}... desde ${socket.handshake.address}${suffix}`);
-      }
-      socket.emit('duplicate_session_socket');
-      socket.disconnect(true);
-      return;
-    }
+    replacePreviousSessionSocket(socket, sessionId);
 
     reserveSessionSocket(socket, sessionId);
-    console.log(`📡 Cliente Socket.IO conectado: ${socket.id} desde ${socket.handshake.address}`);
+    console.log(`📡 Cliente Socket.IO conectado: ${socket.id} desde ${socket.handshake.address} (transport=${transport})`);
     socketClients.add(socket);
 
     if (sessionId) {
@@ -380,10 +380,7 @@ fastify.ready(() => {
     
     // Listener para que el cliente declare su session_id y se una a la room (opcional, por compatibilidad)
     socket.on('join_session', (session_id) => {
-      if (isDuplicateSessionSocket(socket, session_id)) {
-        socket.disconnect(true);
-        return;
-      }
+      replacePreviousSessionSocket(socket, session_id);
       reserveSessionSocket(socket, session_id);
       socket.join(session_id);
       console.log(`✅ Socket ${socket.id} unido a room (session): ${session_id.substring(0, 8)}...`);
