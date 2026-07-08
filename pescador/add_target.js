@@ -1,5 +1,4 @@
-import puppeteer from 'puppeteer-extra'
-import ZtelerthPlugin from 'puppeteer-extra-plugin-stealth'
+import { chromium } from 'playwright'
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -9,9 +8,8 @@ import mongoose from 'mongoose'
 import { Target } from './models/Target.js'
 import { getRandomUserAgent } from './user_agents.js'
 
-puppeteer.use(ZtelerthPlugin())
-
 const default_user_agent = getRandomUserAgent();
+const chromiumExecutablePath = process.env.CHROMIUM_EXECUTABLE_PATH || process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || ''
 
 var captured_favicon = false;
 var desperate = false;
@@ -19,9 +17,9 @@ var super_desperate = false;
 var favicon_url = '';
 
 (async () => {
-  const puppeteerDebugRaw = `${process.env.PUPPETEER_DEBUG || ''}`
-  const isPuppeteerDebugEnabled = puppeteerDebugRaw.trim().toLowerCase() === 'true'
-  console.log(`[ADD_TARGET] PUPPETEER_DEBUG raw='${puppeteerDebugRaw}' enabled=${isPuppeteerDebugEnabled}`)
+  const playwrightDebugRaw = `${process.env.PLAYWRIGHT_DEBUG || process.env.PUPPETEER_DEBUG || ''}`
+  const isPlaywrightDebugEnabled = playwrightDebugRaw.trim().toLowerCase() === 'true'
+  console.log(`[ADD_TARGET] PLAYWRIGHT_DEBUG raw='${playwrightDebugRaw}' enabled=${isPlaywrightDebugEnabled}`)
 
   // MongoDB connection
   const mongoUrl = process.env.MONGO_URL || 'mongodb://mongodb:27017/fescarcuddle';
@@ -62,7 +60,7 @@ var favicon_url = '';
     // Directories might already exist
   }
 
-  let puppet_options = [
+  let browser_options = [
     "--ignore-certificate-errors",
     "--disable-blink-features=AutomationControlled",
     "--start-maximized",
@@ -70,36 +68,37 @@ var favicon_url = '';
   ]
 
   if (primary_language) {
-    puppet_options.push(`--lang=${primary_language}`)
-  }
-
-  if (isPuppeteerDebugEnabled) {
-    puppet_options.push('--remote-debugging-address=0.0.0.0')
-    puppet_options.push('--remote-debugging-host=0.0.0.0')
-    puppet_options.push('--remote-debugging-port=9222')
+    browser_options.push(`--lang=${primary_language}`)
   }
 
   const ignoreDefaultArgs = ["--enable-automation"]
-  if (isPuppeteerDebugEnabled) {
-    ignoreDefaultArgs.push('--remote-debugging-port=0')
+  if (isPlaywrightDebugEnabled) {
     console.log(`[ADD_TARGET] ignoreDefaultArgs=${JSON.stringify(ignoreDefaultArgs)}`)
-    console.log(`[ADD_TARGET] remoteDebugArgs=${JSON.stringify(puppet_options.filter((arg) => arg.startsWith('--remote-debugging-')))}`)
+    console.log('[ADD_TARGET] Skipping --remote-debugging-port because Playwright controls Chromium over a pipe')
   }
 
-  const browser = await puppeteer.launch({
-    headless: isPuppeteerDebugEnabled ? false : "new",
+  const browser = await chromium.launchPersistentContext('./user_data/add_target_profile', {
+    headless: isPlaywrightDebugEnabled ? false : true,
     ignoreHTTPSErrors: true,
+    bypassCSP: true,
+    ...(chromiumExecutablePath ? { executablePath: chromiumExecutablePath } : {}),
     ignoreDefaultArgs,
-    defaultViewport: null,
-    args: puppet_options
+    viewport: null,
+    userAgent: default_user_agent,
+    extraHTTPHeaders: { 'Accept-Language': language_header },
+    args: browser_options
   });
 
-  const page = await browser.newPage();
-  await page.setBypassCSP(true)
-  await page.setUserAgent(default_user_agent)
-  await page.setCacheEnabled(false);
-  await page.setExtraHTTPHeaders({ 'Accept-Language': language_header })
-  await page.evaluateOnNewDocument((lang) => {
+  const page = browser.pages()[0] || await browser.newPage();
+  await browser.route('**/*', async route => {
+    const headers = {
+      ...route.request().headers(),
+      'cache-control': 'no-cache',
+      pragma: 'no-cache'
+    }
+    await route.continue({ headers })
+  })
+  await page.addInitScript((lang) => {
     try {
       Object.defineProperty(navigator, 'language', { get: () => lang })
       Object.defineProperty(navigator, 'languages', { get: () => [lang, lang.split('-')[0]] })
@@ -115,7 +114,7 @@ var favicon_url = '';
     if (mime_type === 'image/x-icon' || mime_type === 'image/vnd.microsoft.icon' || (desperate && /image/.test(mime_type)) || super_desperate) {
       captured_favicon = true
       console.log(`Collected Favicon From: ${response.url()}`)
-      response.buffer().then(file => {
+      response.body().then(file => {
         const fileName = `user_data/favicons/${short_name}.ico`;
         const filePath = path.resolve(__dirname, fileName);
         const writeStream = fs.createWriteStream(filePath);
@@ -131,7 +130,7 @@ var favicon_url = '';
 
   try {
     await page.goto(login_page, {
-      waitUntil: ['load', 'domcontentloaded', 'networkidle2']
+      waitUntil: 'networkidle'
     });
 
     // Get the final URL after any redirects
@@ -148,7 +147,7 @@ var favicon_url = '';
     try {
       // Wait a bit more to ensure page is fully ready
       await page.waitForFunction('document.readyState === "complete"', { timeout: 5000 }).catch(() => { });
-      title = await page.evaluate('document.title');
+      title = await page.evaluate(() => document.title);
       console.log(`Target Tab Title: ${title}`)
     } catch (err) {
       console.log("Error getting page title:", err.message);
@@ -159,10 +158,14 @@ var favicon_url = '';
   if (!captured_favicon && page_loaded) {
     console.log(`Failed to Passively Collect Favicon... Attempting to Manually Extract`)
     try {
-      favicon_url = await page.evaluate('const iconElement = document.querySelector("link[rel~=icon]");const href = (iconElement && iconElement.href) || "/favicon.ico";const faviconURL = new URL(href, window.location).toString();faviconURL;');
+      favicon_url = await page.evaluate(() => {
+        const iconElement = document.querySelector("link[rel~=icon]")
+        const href = (iconElement && iconElement.href) || "/favicon.ico"
+        return new URL(href, window.location).toString()
+      });
       desperate = true
       await page.goto(favicon_url, {
-        waitUntil: ['load', 'domcontentloaded', 'networkidle2']
+        waitUntil: 'networkidle'
       })
     } catch (err) {
       console.log("Error loading favicon URL:", err.message);
@@ -174,7 +177,7 @@ var favicon_url = '';
     super_desperate = true
     try {
       await page.goto(favicon_url, {
-        waitUntil: ['load', 'domcontentloaded', 'networkidle2']
+        waitUntil: 'networkidle'
       })
     } catch (err) {
       console.log("Error on final favicon attempt:", err.message);

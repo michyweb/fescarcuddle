@@ -36,9 +36,8 @@ Minimum controls recommended before deployment:
 
 ## Project Components
 
-- `index.js`: Fastify server, websocket routing, browser lifecycle, admin actions.
-- `pinpo.html`: Client-side relay view and input forwarding.
-- `broadcast.html`: Internal broadcaster page for media stream negotiation.
+- `index.js`: Fastify server, websocket routing, browser lifecycle, CDP screencast, admin actions.
+- `pinpo.html`: Client-side relay view, CDP frame rendering, and input forwarding.
 - `admin.html`: Operator dashboard for approved debugging actions.
 - `zteler.js`: Session replay helper for QA/debugging.
 - `Ztelererjs_extension/`: Browser extension used for controlled storage diagnostics.

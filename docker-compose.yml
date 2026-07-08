@@ -59,8 +59,6 @@ services:
     volumes:
       - ./pescador/config.json:/app/config.json
       - pescador_data:/app/user_data
-    ports:
-      - "9222:9222"
     environment:
       - NODE_ENV=production
       - DISPLAY=:99
@@ -68,7 +66,7 @@ services:
       - TARGET_URL=${TARGET_URL:-}
       - TARGET_LANGUAGE=${TARGET_LANGUAGE:-}
       - TARGET_NAME=${TARGET_NAME:-}
-      - PUPPETEER_DEBUG=${PUPPETEER_DEBUG:-false}
+      - PLAYWRIGHT_DEBUG=${PLAYWRIGHT_DEBUG:-false}
     depends_on:
       mongodb:
         condition: service_healthy

@@ -1,23 +1,21 @@
-import puppeteer from 'puppeteer-extra'
-import ZtelerthPlugin from 'puppeteer-extra-plugin-stealth'
+import { chromium } from 'playwright'
 import fs from 'fs';
 
 var proxy = process.argv[2];
 var target = process.argv[3];
 
 (async () => {
-    //connect to the browser via puppeteer.connect
-    const browser = await puppeteer.connect({
-        //browserWSEndpoint: `ws://${proxy}`,
-        browserURL: `http://${proxy}`,
-    }).catch((err) => console.log("error connecting to browser", err));
-    const target_page = await browser.newPage();
+    const browser = await chromium.connectOverCDP(`http://${proxy}`).catch((err) => console.log("error connecting to browser", err));
+    if (!browser) process.exit(1)
+    const context = browser.contexts()[0] || await browser.newContext()
+    const target_page = await context.newPage();
     await target_page.goto(target, {
-        waitUntil: 'networkidle2'
+        waitUntil: 'networkidle'
     })
-    let cookie_data = await target_page._client.send('Storage.getCookies')
+    const cdp = await context.newCDPSession(target_page)
+    let cookie_data = await cdp.send('Storage.getCookies')
     let cookies = cookie_data.cookies
-    let dom_data = await target_page._client.send('DOMStorage.getDOMStorageItems', {
+    let dom_data = await cdp.send('DOMStorage.getDOMStorageItems', {
         storageId: {
             securityOrigin: await target_page.evaluate(() => window.origin),
             isLocalStorage: true,
@@ -29,8 +27,7 @@ var target = process.argv[3];
     fs.writeFileSync('data.json', JSON.stringify({ url: target_page.url(), cookies: cookies, local_storage: local_storage }))
     //close the page
     await target_page.close();
-    //disconnect from the browser
-    await browser.disconnect();
+    await browser.close();
 })()
 
 

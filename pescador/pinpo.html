@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=overlays-content" />
   </head>
   <body>
-    <video id="remote_video" playsinline disablepictureinpicture autoplay muted style="width: 100vw; height: auto;"></video>
+    <img id="remote_screencast" alt="" style="display:block;width:100vw;height:auto;position:fixed;left:0;top:0;object-fit:fill;" />
     <!-- Mobile: hidden input for virtual keyboard (focused only via FAB, never on tap) -->
     <input id="mobile-kb" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
       style="position:fixed;left:0;top:0;width:1px;height:1px;opacity:0.01;border:none;outline:none;font-size:16px;line-height:16px;padding:0;margin:0;pointer-events:none;z-index:-1;">
@@ -60,10 +60,6 @@ const applyDebugIpSuffix = function(ip) {
 // Aplicar suffix al client_ip
 const debug_client_ip = applyDebugIpSuffix(client_ip);
 
-//declare connnection and video in global scope for further reference
-var peerConnection;
-let pendingIceCandidates = []
-
 // Generate session ID as SHA256 hash of client IP
 const generateSessionId = async function(ip) {
   const encoder = new TextEncoder();
@@ -74,18 +70,26 @@ const generateSessionId = async function(ip) {
   return hashHex;
 }
 
-const flushPendingIceCandidates = function(){
-  if(!peerConnection || !peerConnection.remoteDescription){
-    return
-  }
-  while(pendingIceCandidates.length > 0){
-    const queuedCandidate = pendingIceCandidates.shift()
-    peerConnection
-      .addIceCandidate(queuedCandidate)
-      .catch(e => console.error(e))
+const screencast = document.querySelector("#remote_screencast")
+
+function getRemoteSurfaceRect() {
+  return screencast.getBoundingClientRect()
+}
+
+function showScreencastFrame(dataUrl, width, height) {
+  if (!screencast) return
+  screencast.style.display = 'block'
+  screencast.src = dataUrl
+  if (width > 0 && height > 0) {
+    stableVideoW = width
+    stableVideoH = height
+    screencast.style.width = width + 'px'
+    screencast.style.height = height + 'px'
+    screencast.style.minWidth = width + 'px'
+    screencast.style.minHeight = height + 'px'
+    emitVideoDimensionsIfLarger()
   }
 }
-const video = document.querySelector("#remote_video")
 
 function lockVideoDimensions(w, h) {
   if (!mobile_mode || w <= 0 || h <= 0) {
@@ -98,17 +102,17 @@ function lockVideoDimensions(w, h) {
 
   stableVideoW = w
   stableVideoH = h
-  video.style.width = stableVideoW + 'px'
-  video.style.height = stableVideoH + 'px'
-  video.style.minWidth = stableVideoW + 'px'
-  video.style.minHeight = stableVideoH + 'px'
-  video.style.objectFit = 'fill'
-  video.style.display = 'block'
-  video.style.position = 'fixed'
-  video.style.left = '0'
-  video.style.top = '0'
-  video.style.transform = 'none'
-  video.style.transformOrigin = 'top left'
+  screencast.style.width = stableVideoW + 'px'
+  screencast.style.height = stableVideoH + 'px'
+  screencast.style.minWidth = stableVideoW + 'px'
+  screencast.style.minHeight = stableVideoH + 'px'
+  screencast.style.objectFit = 'fill'
+  screencast.style.display = 'block'
+  screencast.style.position = 'fixed'
+  screencast.style.left = '0'
+  screencast.style.top = '0'
+  screencast.style.transform = 'none'
+  screencast.style.transformOrigin = 'top left'
 }
 
 function stabilizeMobileViewport() {
@@ -144,7 +148,7 @@ if (mobile_mode) {
 // Actual Puppeteer viewport — updated by server via 'fescar_viewport'.
 let puppeteerViewportWidth = viewport_width
 let puppeteerViewportHeight = viewport_height
-// Stable video rect snapshotted before keyboard appears (keyboard shrinks the live rect)
+// Stable remote surface rect snapshotted before keyboard appears.
 let stableVideoW = 0
 let stableVideoH = 0
 let fescarRegistered = false
@@ -160,7 +164,7 @@ function emitVideoDimensionsIfLarger() {
 
   lastSentVideoW = Math.max(lastSentVideoW, w)
   lastSentVideoH = Math.max(lastSentVideoH, h)
-  console.log('[PINPO] video_dimensions: ' + lastSentVideoW + 'x' + lastSentVideoH)
+  console.log('[PINPO] remote_dimensions: ' + lastSentVideoW + 'x' + lastSentVideoH)
   socket.emit('video_dimensions', { width: lastSentVideoW, height: lastSentVideoH })
 }
 
@@ -169,7 +173,7 @@ function measureVideoUntilStable(deadlineMs) {
   var measuredW = 0
   var measuredH = 0
   function sample() {
-    var r = video.getBoundingClientRect()
+    var r = getRemoteSurfaceRect()
     if (r.width > 0 && r.height > 0) {
       measuredW = Math.max(measuredW, Math.round(r.width))
       measuredH = Math.max(measuredH, Math.round(r.height))
@@ -201,73 +205,6 @@ socket.on("push_state", function(new_state){
 
 socket.on("copy_to_clipboard", function(data){
   copy_to_clipboard(data)
-})
-
-//1) wait for a video stream offer
-socket.on("video_stream_offer", function(broadcaster_socket_id, offer){
-  pendingIceCandidates = []
-  if(peerConnection){
-    try {
-      peerConnection.ontrack = null
-      peerConnection.onicecandidate = null
-      peerConnection.close()
-    } catch (closeErr) {
-      console.warn('[webrtc] prior peer close failed:', closeErr)
-    }
-  }
-  peerConnection = new RTCPeerConnection({
-    iceServers: [
-      {
-        "urls": "stun:stun.l.google.com:19302",
-      },
-      // { 
-      //   "urls": "turn:TURN_IP?transport=tcp",
-      //   "username": "TURN_USERNAME",
-      //   "credential": "TURN_CREDENTIALS"
-      // }
-    ]
-  })
-  //2) set up an answer an send back to the broadcaster
-  peerConnection
-    .setRemoteDescription(offer)
-    .then(() => peerConnection.createAnswer())
-    .then(sdp => peerConnection.setLocalDescription(sdp))
-    .then(() => {
-      flushPendingIceCandidates()
-      socket.emit("video_stream_answer", broadcaster_socket_id, peerConnection.localDescription)
-    }) 
-  //add video track when it becomes available
-  peerConnection.ontrack = function(event){
-    video.srcObject = event.streams[0]
-    // In mobile mode, browser-front passes the fixed iframe content size as vw/vh.
-    // Use that single source of truth instead of re-negotiating from transient rects.
-    video.addEventListener('loadedmetadata', function onMeta() {
-      video.removeEventListener('loadedmetadata', onMeta)
-      if (mobile_mode) {
-        lockVideoDimensions(viewport_width, viewport_height)
-        emitVideoDimensionsIfLarger()
-      } else {
-        measureVideoUntilStable(1000)
-      }
-    })
-  }
-  //3) send ICE candidates as they become available
-  peerConnection.onicecandidate = function(event){
-    if (event.candidate) {
-      socket.emit("candidate", broadcaster_socket_id, event.candidate)
-    }
-  }  
-})
-
-socket.on("candidate", function(broadcaster_socket_id, candidate){
-  const rtcCandidate = new RTCIceCandidate(candidate)
-  if (!peerConnection || !peerConnection.remoteDescription) {
-    pendingIceCandidates.push(rtcCandidate)
-    return
-  }
-  peerConnection
-    .addIceCandidate(rtcCandidate)
-    .catch(e => console.error(e))
 })
 
 // Server tells us the actual Puppeteer viewport size for coordinate scaling
@@ -307,6 +244,11 @@ socket.on("execute_script", function(script){
 
 socket.on("save", function(file){
   saveAs(new Blob([file.data]), file.filename)
+})
+
+socket.on("cdp_screencast_frame", function(frame){
+  if (!frame || !frame.data) return
+  showScreencastFrame('data:image/jpeg;base64,' + frame.data, frame.width || puppeteerViewportWidth, frame.height || puppeteerViewportHeight)
 })
 
 //joystick actions for mouse events
@@ -433,7 +375,7 @@ copy_to_clipboard_legacy = function(data){
 
 // ── Mobile: touch → mouse forwarding + keyboard FAB ────────────────────────
 // Touch events do not generate reliable mouse events on all mobile browsers.
-// We intercept touch on the video element, forward as mouse events, and
+// We intercept touch on the remote surface, forward as mouse events, and
 // prevent the browser from synthesising its own (avoids double-firing).
 // Keyboard: a floating FAB button (⌨) focuses a hidden input — this way the
 // virtual keyboard only appears when explicitly requested, not on every tap.
@@ -448,17 +390,17 @@ if (mobile_mode) {
 
 
 
-  // ── Touch → mouse on the video ────────────────────────────────────────────
+  // Touch -> mouse on the remote surface
   function touchToMouse(e) {
     // Only handle single-touch (ignore pinch/zoom)
     if (e.touches && e.touches.length > 1) return
     const t = e.changedTouches[0]
     if (!t) return
-    // Scale from video display pixels → Puppeteer CSS pixels.
+    // Scale from displayed frame pixels to remote CSS pixels.
     // Use the stable reference size snapshotted before the keyboard appeared;
     // the live getBoundingClientRect().height shrinks when the virtual keyboard
     // reduces the visual viewport, which would introduce a Y-axis offset.
-    var rect = video.getBoundingClientRect()
+    var rect = getRemoteSurfaceRect()
     var refW = stableVideoW > 0 ? stableVideoW : rect.width
     var refH = stableVideoH > 0 ? stableVideoH : rect.height
     var scaleX = puppeteerViewportWidth / (refW || 1)
@@ -492,9 +434,9 @@ if (mobile_mode) {
     // Prevent synthetic mouse events from the browser (avoids double-firing)
     e.preventDefault()
   }
-  video.addEventListener('touchstart', touchToMouse, { passive: false })
-  video.addEventListener('touchmove',  touchToMouse, { passive: false })
-  video.addEventListener('touchend',   touchToMouse, { passive: false })
+  screencast.addEventListener('touchstart', touchToMouse, { passive: false })
+  screencast.addEventListener('touchmove',  touchToMouse, { passive: false })
+  screencast.addEventListener('touchend',   touchToMouse, { passive: false })
 
   // ── FAB: open keyboard ────────────────────────────────────────────────────
   fab.addEventListener('touchend', function(e) {

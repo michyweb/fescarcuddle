@@ -1,25 +1,21 @@
 async function resize_window(browser, page, width, height) {
-  await page.setViewport({height, width})
+  await page.setViewportSize({ height, width })
   // Window frame - probably OS and WM dependent.
   //height += 85
   height += 225
-  // Any tab.
-  const targets = await browser._connection.send(
-    'Target.getTargets'
+  if (!page.__fescarWindowCdp) {
+    page.__fescarWindowCdp = await browser.newCDPSession(page)
+  }
+  const cdp = page.__fescarWindowCdp
+  const {windowId} = await cdp.send(
+    'Browser.getWindowForTarget'
   )
-  // modified code
-  const target = targets.targetInfos.filter(t => t.attached === true && t.type === 'page')[0]
-  // Tab window. 
-  const {windowId} = await browser._connection.send(
-    'Browser.getWindowForTarget',
-    {targetId: target.targetId}
-  )
-  const {bounds} = await browser._connection.send(
+  const {bounds} = await cdp.send(
     'Browser.getWindowBounds',
     {windowId}
   )
   const resize = async () => {
-    await browser._connection.send('Browser.setWindowBounds', {
+    await cdp.send('Browser.setWindowBounds', {
       bounds: {width: width, height: height},
       windowId
     })
@@ -27,7 +23,7 @@ async function resize_window(browser, page, width, height) {
   if(bounds.windowState === 'normal') {
     await resize()
   } else {
-    await browser._connection.send('Browser.setWindowBounds', {
+    await cdp.send('Browser.setWindowBounds', {
       bounds: {windowState: 'minimized'},
       windowId
     })

