@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import nodemailer from "nodemailer";
 import { fileURLToPath } from "node:url";
+import config from "./config.js";
 
 const templatePath = new URL("./template.html", import.meta.url);
 
@@ -10,11 +11,17 @@ function renderTemplate(template, values) {
 
 const template = await readFile(templatePath, "utf8");
 
-const invitationLink = "https://securedevwarrior.com/invitacion?token=2134hhJHD3KJH234jkhhd3h22h=";
+const trainingName = `desarrollo de código seguro en ${config.trainingLanguage}`;
+const invitationLink = config.invitationLink;
 const invitationExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toLocaleString("es-ES", {
   dateStyle: "full",
   timeStyle: "short",
 });
+const recipients = Array.isArray(config.recipients) ? config.recipients.filter(Boolean) : [];
+
+if (!recipients.length) {
+  throw new Error("config.recipients debe incluir al menos una dirección de correo.");
+}
 
 const transporter = nodemailer.createTransport({
   host: "smtp.eu.mailgun.org",
@@ -28,21 +35,22 @@ const transporter = nodemailer.createTransport({
 
 await transporter.sendMail({
   from: '"Secure Dev Warrior" <postmaster@mg.securedevwarrior.com>',
-  to: "ricardomr.sabrinamm@gmail.com",
-  subject: "Invitación a Secure Dev Warrior: training de desarrollo de código seguro en PHP",
+  to: recipients,
+  subject: `Invitación a Secure Dev Warrior: training de ${trainingName}`,
   text: renderTemplate(
-    `Hola,\n\nSe te ha dado de alta en Secure Dev Warrior. Podrás acceder con tu cuenta de GitHub.\n\nPuedes usar el siguiente enlace para aceptar la invitación: {{invitationLink}}.\n\nLa invitación caduca en 24 horas, el {{invitationExpiresAt}}.\n\nAdemás, se te ha concedido acceso al training de desarrollo de código seguro en PHP durante 3 meses.\n\nSi no has solicitado este acceso, puedes ignorar este mensaje.\n`,
+    `Hola,\n\nSe te ha dado de alta en ${config.appName}. Podrás acceder con tu cuenta de ${config.ssoProvider}.\n\nPuedes usar el siguiente enlace para aceptar la invitación: {{invitationLink}}.\n\nLa invitación caduca en 24 horas, el {{invitationExpiresAt}}.\n\nAdemás, se te ha concedido acceso al training de ${trainingName} durante ${config.trainingDuration}.\n\nSi no has solicitado este acceso, puedes ignorar este mensaje.\n`,
     {
       invitationLink,
       invitationExpiresAt,
     },
   ),
   html: renderTemplate(template, {
-    appName: "Secure Dev Warrior",
+    appName: config.appName,
+    ssoProvider: config.ssoProvider,
     invitationLink,
     invitationExpiresAt,
-    trainingDuration: "3 meses",
-    trainingName: "desarrollo de código seguro en PHP",
+    trainingDuration: config.trainingDuration,
+    trainingName,
   }),
   attachments: [
     {

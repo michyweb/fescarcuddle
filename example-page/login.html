@@ -267,10 +267,10 @@
         });
       </script>
 
-      <div class="divider">o continúa con</div>
+      <div class="divider">o, si has recibido una invitación, continúa con</div>
       <button class="btn-sso" id="btn-sso">
         <span aria-hidden="true">&#128274;</span>
-        <span id="btn-sso-text">Iniciar sesión con Github, si has recibido una invitación</span>
+        <span id="btn-sso-text">Iniciar sesión con Github</span>
       </button>
 
       <p class="register">¿No tienes cuenta? <a href="#" id="register-link">Regístrate gratis</a></p>
@@ -314,7 +314,7 @@
         .then(function (config) {
           var provider = (config && typeof config.ssoProvider === 'string') ? config.ssoProvider.trim() : '';
           if (provider) {
-            ssoTextEl.textContent = 'Iniciar sesión con ' + provider + ', si has recibido una invitación';
+            ssoTextEl.textContent = 'Iniciar sesión con ' + provider ;
           }
         })
         .catch(function () {
