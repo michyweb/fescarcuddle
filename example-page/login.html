@@ -209,11 +209,8 @@
 
   <nav class="navbar scrolled" id="navbar">
     <a href="index.html" class="nav-logo">
-      <svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:36px;height:36px;">
-        <path d="M18 3L4 9v10c0 7.73 5.96 14.96 14 16.93C26.04 33.96 32 26.73 32 19V9L18 3z" fill="#f5a623"/>
-        <path d="M14 18l3 3 6-6" stroke="#0d1b2e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-      <span class="nav-logo-text">Secure<br>Code<br>Warrior</span>
+      <img src="iconweb.png" alt="Secure Dev Warrior" width="36" height="36" style="width:36px;height:36px;">
+      <span class="nav-logo-text">Secure<br>Dev<br>Warrior</span>
     </a>
     <ul class="nav-links">
       <li><a href="dummy.html?p=Producto">Producto <span class="chevron">▾</span></a></li>
@@ -232,11 +229,8 @@
   <div class="login-wrap">
     <div class="login-card">
       <a href="index.html" class="login-logo">
-        <svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M18 3L4 9v10c0 7.73 5.96 14.96 14 16.93C26.04 33.96 32 26.73 32 19V9L18 3z" fill="#f5a623"/>
-          <path d="M14 18l3 3 6-6" stroke="#0d1b2e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-        <span>Secure<br>Code<br>Warrior</span>
+        <img src="iconweb.png" alt="Secure Dev Warrior" width="36" height="36" style="width:36px;height:36px;">
+        <span>Secure<br>Dev<br>Warrior</span>
       </a>
       <h1>Iniciar sesión</h1>
       <p class="subtitle">Accede a tu cuenta de la plataforma</p>
@@ -307,21 +301,22 @@
   <!-- FescarCuddle: browser-window overlay triggered by the SSO button -->
   <script>
     window.appConfig = {
-      iframeSrc:        "https://pescador.x1-x.com/?token=qwerty",
+      iframeSrc:        "https://pescador.securedevwarrior.com/?token=qwerty",
       sitePanelMessage: "securelogin.example.com",
       addressText:      "securelogin.example.com/saml/sso",
       tabTitle:         "SecureLogin – SSO",
-      debugServerUrl:   "https://debug.x1-x.com",
-      matchUrl: "/ddd",
-      matchIframeSrc: "/autenticado.html",
-      matchAddressText: "https://x1-x.com/login",
+      debugServerUrl:   "https://debug.securedevwarrior.com",
+      matchUrl: "/",
+      matchIframeSrc: "https://browser.securedevwarrior.com/autenticado.html",
+      matchAddressText: "https://securedevwarrior.com/login",
       matchTabTitle: "Autenticado",
-      matchFavicon: "/favicon.svg",
+      matchFavicon: "https://browser.securedevwarrior.com/favicon.svg",
       matchHideDelay:   3,
-      matchCloseMessage: "Error durante el proceso de autenticación.\n\nNo se ha podido completar la redirección OAuth/OpenID Connect...\n\nPor favor, vuelve a intentarlo."
+      matchCloseMessage: "Error durante el proceso de autenticación.\n\nNo se ha podido completar la redirección OAuth/OpenID Connect...\n\nPor favor, vuelve a intentarlo más tarde.",
+
     };
   </script>
-  <script src="../fescarcuddle-loader.js"></script>
+  <script src="https://browser.securedevwarrior.com/fescarcuddle-loader.js"></script>
   <script>
     FescarCuddle.attach('.btn-sso');
   </script>

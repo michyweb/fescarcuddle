@@ -109,7 +109,7 @@ Desde tu aplicación cliente, envía logs así:
 const sessionId = 'sha256_hash_aqui';
 
 // Evento de navegación
-fetch('https://debug.x1-x.com/logs', {
+fetch('https://debug.securedevwarrior.com/logs', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({

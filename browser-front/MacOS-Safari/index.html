@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link rel="stylesheet" href="style.css">
+	<script src="/config.js"></script>
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+</head>
+<body>
+<button id="show-iframe-btn" type="button">Mostrar iframe</button>
+<div id="window" class="is-hidden">
+<!-- Title bar start -->
+<div id="title-bar-width">
+	<div id="title-bar" class="outer yosemite">
+		<div class="dots">
+			<div id="exit" class="dot red"></div>
+			<div id="minimize" class="dot amber"></div>
+			<div id="maximize" class="dot green"></div>
+		</div>
+		<div class="painted-toolbar" aria-hidden="true">
+			<span class="painted-left">
+				<svg class="toolbar-svg toolbar-side" viewBox="0 0 24 24">
+					<rect x="3.5" y="4.5" width="17" height="15" rx="2"></rect>
+					<path d="M9 5v14M6.2 8.5h1.3M6.2 12h1.3M6.2 15.5h1.3"></path>
+				</svg>
+				<svg class="toolbar-svg toolbar-caret" viewBox="0 0 24 24">
+					<path d="M8 10l4 4 4-4"></path>
+				</svg>
+				<svg class="toolbar-svg toolbar-arrow" viewBox="0 0 24 24">
+					<path d="M15 5l-7 7 7 7"></path>
+				</svg>
+				<svg class="toolbar-svg toolbar-arrow" viewBox="0 0 24 24">
+					<path d="M9 5l7 7-7 7"></path>
+				</svg>
+			</span>
+			<span class="painted-address">
+				<svg class="toolbar-svg toolbar-page" viewBox="0 0 24 24">
+					<rect x="7" y="5.5" width="10" height="7" rx="1.5"></rect>
+					<path d="M8 16h8M10 19h4"></path>
+				</svg>
+				<svg class="toolbar-svg toolbar-lock" viewBox="0 0 24 24">
+					<rect x="7" y="10" width="10" height="9" rx="2"></rect>
+					<path d="M9 10V8a3 3 0 016 0v2"></path>
+				</svg>
+				<span class="painted-domain">google.com</span>
+				<svg class="toolbar-svg toolbar-reload" viewBox="0 0 24 24">
+					<path d="M19 8a7 7 0 10-1.9 7.2"></path>
+					<path d="M19 4v4h-4"></path>
+				</svg>
+			</span>
+			<span class="painted-actions">
+				<svg class="toolbar-svg toolbar-download" viewBox="0 0 24 24">
+					<circle cx="12" cy="12" r="8"></circle>
+					<path d="M12 7v8M8.8 11.8L12 15l3.2-3.2"></path>
+				</svg>
+				<svg class="toolbar-svg toolbar-share" viewBox="0 0 24 24">
+					<path d="M12 4v11"></path>
+					<path d="M8.5 7.5L12 4l3.5 3.5"></path>
+					<path d="M7 11v8h10v-8"></path>
+				</svg>
+				<svg class="toolbar-svg toolbar-plus" viewBox="0 0 24 24">
+					<path d="M12 5v14M5 12h14"></path>
+				</svg>
+				<svg class="toolbar-svg toolbar-tabs" viewBox="0 0 24 24">
+					<rect x="8" y="5" width="11" height="11" rx="2"></rect>
+					<rect x="5" y="8" width="11" height="11" rx="2"></rect>
+				</svg>
+			</span>
+		</div>
+		<div class="mac-window-tools" aria-hidden="true">
+			<span class="mac-window-icon"></span>
+			<span class="mac-window-caret">&#9662;</span>
+		</div>
+		<div class="mac-nav" aria-hidden="true">
+			<button class="mac-nav-btn mac-nav-back" type="button" aria-label="Atras"></button>
+			<button class="mac-nav-btn mac-nav-forward" type="button" aria-label="Adelante"></button>
+		</div>
+		<div class="mac-address-shell">
+			<div id="url-bar" class="mac-address-pill">
+				<span class="mac-address-page-icon" aria-hidden="true"></span>
+				<span class="mac-address-center">
+				<span id="ssl-padlock" aria-hidden="true"></span>
+				<span id="domain-name">google.com</span>
+				<span id="domain-path"></span>
+				</span>
+				<button class="mac-address-reload" type="button" aria-label="Recargar"></button>
+			</div>
+		</div>
+		<div class="mac-toolbar-actions" aria-hidden="true">
+			<button class="mac-action mac-action-download" type="button" aria-label="Descargar"></button>
+			<button class="mac-action mac-action-share" type="button" aria-label="Compartir"></button>
+			<button class="mac-action mac-action-plus" type="button" aria-label="Nueva pestana"></button>
+			<button class="mac-action mac-action-tabs" type="button" aria-label="Pestanas"></button>
+		</div>
+		
+	</div>
+</div>
+<!-- Content start -->
+<iframe id="content" class="is-hidden" frameBorder="0"></iframe>
+<div class="resize-handle nw" data-resize="nw" aria-hidden="true"></div>
+<div class="resize-handle ne" data-resize="ne" aria-hidden="true"></div>
+<div class="resize-handle sw" data-resize="sw" aria-hidden="true"></div>
+<div class="resize-handle se" data-resize="se" aria-hidden="true"></div>
+</div>
+</body>
+<script src="/script.js"></script>
+<script>
+(() => {
+	const browserWindow = document.getElementById("window");
+	const dragHandle = document.getElementById("title-bar");
+	const content = document.getElementById("content");
+	const resizeHandles = browserWindow ? browserWindow.querySelectorAll("[data-resize]") : [];
+
+	if (!browserWindow || !dragHandle) return;
+
+	let startX = 0;
+	let startY = 0;
+	let startLeft = 0;
+	let startTop = 0;
+	let dragging = false;
+	let resizing = false;
+	let resizeDir = "";
+	let startWidth = 0;
+	let startHeight = 0;
+
+	const readPx = (value, fallback) => {
+		const parsed = Number.parseFloat(value);
+		return Number.isFinite(parsed) ? parsed : fallback;
+	};
+
+	const getMinSize = () => {
+		const styles = window.getComputedStyle(browserWindow);
+		return {
+			minWidth: readPx(styles.getPropertyValue("--window-min-width"), 980),
+			minHeight: readPx(styles.getPropertyValue("--window-min-height"), 260)
+		};
+	};
+
+	const getTitleHeight = () => {
+		const titleBarWidth = document.getElementById("title-bar-width");
+		if (!titleBarWidth) return 39;
+		const rect = titleBarWidth.getBoundingClientRect();
+		return Math.max(1, Math.round(rect.height));
+	};
+
+	dragHandle.addEventListener("pointerdown", (event) => {
+		if (event.button !== 0) return;
+		if (resizing) return;
+
+		const rect = browserWindow.getBoundingClientRect();
+		startX = event.clientX;
+		startY = event.clientY;
+		startLeft = rect.left;
+		startTop = rect.top;
+		dragging = true;
+
+		dragHandle.setPointerCapture(event.pointerId);
+		event.preventDefault();
+	});
+
+	dragHandle.addEventListener("pointermove", (event) => {
+		if (!dragging) return;
+
+		const maxLeft = Math.max(0, window.innerWidth - browserWindow.offsetWidth);
+		const maxTop = Math.max(0, window.innerHeight - dragHandle.offsetHeight);
+		const nextLeft = Math.min(maxLeft, Math.max(0, startLeft + event.clientX - startX));
+		const nextTop = Math.min(maxTop, Math.max(0, startTop + event.clientY - startY));
+
+		browserWindow.style.setProperty("--window-left", `${readPx(nextLeft, 40)}px`);
+		browserWindow.style.setProperty("--window-top", `${readPx(nextTop, 40)}px`);
+	});
+
+	const stopDragging = (event) => {
+		if (!dragging) return;
+		dragging = false;
+		if (dragHandle.hasPointerCapture(event.pointerId)) {
+			dragHandle.releasePointerCapture(event.pointerId);
+		}
+	};
+
+	dragHandle.addEventListener("pointerup", stopDragging);
+	dragHandle.addEventListener("pointercancel", stopDragging);
+
+	const stopResizing = (event) => {
+		if (!resizing) return;
+		resizing = false;
+		resizeDir = "";
+		for (const handle of resizeHandles) {
+			if (handle.hasPointerCapture && handle.hasPointerCapture(event.pointerId)) {
+				handle.releasePointerCapture(event.pointerId);
+			}
+		}
+	};
+
+	for (const handle of resizeHandles) {
+		handle.addEventListener("pointerdown", (event) => {
+			if (event.button !== 0) return;
+			const rect = browserWindow.getBoundingClientRect();
+			startX = event.clientX;
+			startY = event.clientY;
+			startLeft = rect.left;
+			startTop = rect.top;
+			startWidth = rect.width;
+			startHeight = rect.height;
+			resizeDir = handle.getAttribute("data-resize") || "";
+			resizing = true;
+			dragging = false;
+			handle.setPointerCapture(event.pointerId);
+			event.preventDefault();
+		});
+
+		handle.addEventListener("pointermove", (event) => {
+			if (!resizing || !resizeDir) return;
+			const minSize = getMinSize();
+			const minWidth = Math.min(minSize.minWidth, window.innerWidth);
+			const minHeight = Math.min(minSize.minHeight, window.innerHeight);
+
+			const dx = event.clientX - startX;
+			const dy = event.clientY - startY;
+			let nextLeft = startLeft;
+			let nextTop = startTop;
+			let nextWidth = startWidth;
+			let nextHeight = startHeight;
+
+			if (resizeDir.indexOf("e") !== -1) {
+				nextWidth = startWidth + dx;
+			}
+			if (resizeDir.indexOf("s") !== -1) {
+				nextHeight = startHeight + dy;
+			}
+			if (resizeDir.indexOf("w") !== -1) {
+				nextWidth = startWidth - dx;
+				nextLeft = startLeft + dx;
+			}
+			if (resizeDir.indexOf("n") !== -1) {
+				nextHeight = startHeight - dy;
+				nextTop = startTop + dy;
+			}
+
+			if (nextWidth < minWidth) {
+				if (resizeDir.indexOf("w") !== -1) nextLeft -= (minWidth - nextWidth);
+				nextWidth = minWidth;
+			}
+			if (nextHeight < minHeight) {
+				if (resizeDir.indexOf("n") !== -1) nextTop -= (minHeight - nextHeight);
+				nextHeight = minHeight;
+			}
+
+			const maxWidth = window.innerWidth;
+			const maxHeight = window.innerHeight;
+			if (nextLeft < 0) {
+				nextWidth += nextLeft;
+				nextLeft = 0;
+			}
+			if (nextTop < 0) {
+				nextHeight += nextTop;
+				nextTop = 0;
+			}
+			if (nextLeft + nextWidth > maxWidth) nextWidth = maxWidth - nextLeft;
+			if (nextTop + nextHeight > maxHeight) nextHeight = maxHeight - nextTop;
+
+			nextWidth = Math.max(minWidth, nextWidth);
+			nextHeight = Math.max(minHeight, nextHeight);
+
+			browserWindow.style.setProperty("--window-left", `${readPx(nextLeft, 40)}px`);
+			browserWindow.style.setProperty("--window-top", `${readPx(nextTop, 40)}px`);
+			browserWindow.style.setProperty("--window-width", `${Math.round(nextWidth)}px`);
+			browserWindow.style.setProperty("--window-height", `${Math.round(nextHeight)}px`);
+			if (content) {
+				content.style.setProperty("--content-height", `${Math.max(120, Math.round(nextHeight - getTitleHeight()))}px`);
+			}
+		});
+
+		handle.addEventListener("pointerup", stopResizing);
+		handle.addEventListener("pointercancel", stopResizing);
+	}
+})();
+</script>
+</html>

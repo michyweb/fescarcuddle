@@ -14,20 +14,11 @@ const userAgentTemplates = [
   // Windows - Edge
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/<<CHROME_VERSION>> Safari/537.36 Edg/<<EDGE_VERSION>>',
 
-  // Windows - Firefox
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:<<FIREFOX_VERSION>>) Gecko/20100101 Firefox/<<FIREFOX_VERSION>>',
-
-  // macOS - Safari
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/<<SAFARI_VERSION>> Safari/605.1.15',
-
   // macOS - Chrome
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/<<CHROME_VERSION>> Safari/537.36',
 
-  // Linux - Chrome
-  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/<<CHROME_VERSION>> Safari/537.36',
-
-  // Linux - Firefox
-  'Mozilla/5.0 (X11; Linux x86_64; rv:<<FIREFOX_VERSION>>) Gecko/20100101 Firefox/<<FIREFOX_VERSION>>'
+  // macOS - Edge
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/<<CHROME_VERSION>> Safari/537.36 Edg/<<EDGE_VERSION>>',
 ]
 
 const resolveTemplate = (template) => {

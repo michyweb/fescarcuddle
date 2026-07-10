@@ -1,0 +1,1962 @@
+@font-face {
+  font-family: system;
+  font-style: normal;
+  font-weight: 300;
+  src: local(".SFNSText-Light"), local(".HelveticaNeueDeskInterface-Light"),
+    local("Roboto-Light"), local("DroidSans"), local("Tahoma"),
+    local(".LucidaGrandeUI"), local("Ubuntu Light"), local("Segoe UI Light");
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: transparent;
+}
+
+#show-iframe-btn {
+  margin: 12px;
+  padding: 8px 14px;
+  border: 1px solid #d0d0d0;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #333333;
+  font-family: "system", "Segoe UI", sans-serif;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+#show-iframe-btn:hover {
+  background: #ebebeb;
+}
+
+#logo-description {
+  display: none;
+}
+
+#window {
+  position: fixed;
+  left: 0;
+  top: 2px;
+  z-index: 99999;
+  width: 100vw;
+  max-width: none;
+  overflow: hidden;
+  background: transparent;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
+}
+
+#window.is-hidden,
+#content.is-hidden {
+  display: none;
+}
+
+#title-bar-width {
+  width: 100%;
+  height: 10px;
+  background: linear-gradient(180deg, #565153 0%, #4e4a4d 100%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  box-sizing: border-box;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.26);
+}
+
+#title-bar {
+  user-select: none;
+  height: 100%;
+  position: relative;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.dots {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: absolute;
+  left: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.dot {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  box-shadow:
+    inset 0 0 0 0.5px rgba(0, 0, 0, 0.22),
+    0 1px 1px rgba(0, 0, 0, 0.2);
+}
+
+.dot.red {
+  background: #ff5f57;
+  border: 1px solid #e0443e;
+}
+
+.dot.amber {
+  background: #febc2e;
+  border: 1px solid #df9f22;
+}
+
+.dot.green {
+  background: #28c840;
+  border: 1px solid #20a834;
+}
+
+.mac-window-tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  position: absolute;
+  left: 104px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #d6d2d4;
+  z-index: 2;
+}
+
+.mac-window-icon,
+.mac-window-caret {
+  width: 21px;
+  height: 21px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mac-window-icon {
+  border: 1.4px solid rgba(255, 255, 255, 0.34);
+  background: transparent;
+  position: relative;
+  opacity: 0.86;
+}
+
+.mac-window-icon::before,
+.mac-window-icon::after {
+  content: "";
+  position: absolute;
+  background: rgba(255, 255, 255, 0.34);
+}
+
+.mac-window-icon::before {
+  left: 6px;
+  width: 1px;
+  height: 12px;
+}
+
+.mac-window-icon::after {
+  left: 4px;
+  top: 6px;
+  width: 12px;
+  height: 1px;
+  box-shadow: 0 5px 0 rgba(255, 255, 255, 0.34);
+}
+
+.mac-window-caret {
+  width: 10px;
+  font-size: 11px;
+  opacity: 0.86;
+}
+
+.mac-nav {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  position: absolute;
+  left: 174px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+}
+
+.mac-nav-btn {
+  width: 20px;
+  height: 24px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.28);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  position: relative;
+}
+
+.mac-nav-btn:hover {
+  color: rgba(255, 255, 255, 0.68);
+}
+
+.mac-nav-btn::before {
+  content: "";
+  position: absolute;
+  top: 5px;
+  width: 11px;
+  height: 11px;
+  border-top: 2px solid currentColor;
+  border-left: 2px solid currentColor;
+}
+
+.mac-nav-back::before {
+  left: 6px;
+  transform: rotate(-45deg);
+}
+
+.mac-nav-forward::before {
+  right: 6px;
+  transform: rotate(135deg);
+}
+
+.mac-address-shell {
+  position: absolute;
+  left: clamp(260px, 50vw, 50%);
+  top: 50%;
+  width: clamp(320px, 43.6vw, 544px);
+  transform: translate(-50%, -50%);
+  z-index: 3;
+}
+
+.mac-address-pill,
+#url-bar {
+  width: 100%;
+  height: 25px;
+  min-width: 0;
+  padding: 0 8px;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.065);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 1px 0 rgba(0, 0, 0, 0.16);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  overflow: hidden;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+
+.mac-address-page-icon {
+  width: 14px;
+  height: 13px;
+  border: 1.5px solid rgba(255, 255, 255, 0.36);
+  border-radius: 2px;
+  flex: 0 0 auto;
+  position: relative;
+  box-sizing: border-box;
+}
+
+.mac-address-page-icon::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  top: 3px;
+  height: 1.5px;
+  background: rgba(255, 255, 255, 0.34);
+}
+
+.mac-address-center {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+#ssl-padlock {
+  width: 11px;
+  height: 8px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.82);
+  flex: 0 0 auto;
+  position: relative;
+}
+
+#ssl-padlock::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: -6px;
+  width: 5px;
+  height: 7px;
+  border: 1.6px solid rgba(255, 255, 255, 0.82);
+  border-bottom: 0;
+  border-radius: 5px 5px 0 0;
+}
+
+#domain-name,
+#domain-path {
+  font-family: "system", "Segoe UI", sans-serif;
+  font-size: 13px;
+  line-height: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#domain-name {
+  color: rgba(255, 255, 255, 0.86);
+  font-weight: 700;
+}
+
+#domain-path {
+  color: rgba(255, 255, 255, 0.56);
+}
+
+.mac-address-reload {
+  width: 18px;
+  height: 18px;
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.62);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  flex: 0 0 auto;
+  position: relative;
+}
+
+.mac-address-reload::before {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 3px;
+  width: 10px;
+  height: 10px;
+  border: 1.6px solid currentColor;
+  border-left-color: transparent;
+  border-radius: 50%;
+}
+
+.mac-address-reload::after {
+  content: "";
+  position: absolute;
+  right: 3px;
+  top: 2px;
+  width: 5px;
+  height: 5px;
+  border-top: 1.6px solid currentColor;
+  border-right: 1.6px solid currentColor;
+  transform: rotate(20deg);
+}
+
+.mac-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 19px;
+  position: absolute;
+  right: 19px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+}
+
+.mac-action {
+  width: 21px;
+  height: 22px;
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.34);
+  padding: 0;
+  position: relative;
+}
+
+.mac-action:hover {
+  color: rgba(255, 255, 255, 0.68);
+}
+
+.mac-action::before,
+.mac-action::after {
+  content: "";
+  position: absolute;
+  box-sizing: border-box;
+}
+
+.mac-action-download::before {
+  left: 4px;
+  top: 3px;
+  width: 13px;
+  height: 13px;
+  border: 1.6px solid currentColor;
+  border-radius: 50%;
+}
+
+.mac-action-download::after {
+  left: 9px;
+  top: 4px;
+  width: 1.6px;
+  height: 9px;
+  background: currentColor;
+  box-shadow:
+    -3px 5px 0 -1px currentColor,
+    3px 5px 0 -1px currentColor;
+}
+
+.mac-action-share::before {
+  left: 4px;
+  bottom: 3px;
+  width: 13px;
+  height: 12px;
+  border: 1.6px solid currentColor;
+  border-top: 0;
+  border-radius: 2px;
+}
+
+.mac-action-share::after {
+  left: 10px;
+  top: 1px;
+  width: 1.6px;
+  height: 12px;
+  background: currentColor;
+}
+
+.mac-action-plus::before,
+.mac-action-plus::after {
+  left: 4px;
+  top: 10px;
+  width: 14px;
+  height: 1.8px;
+  border-radius: 2px;
+  background: currentColor;
+}
+
+.mac-action-plus::after {
+  transform: rotate(90deg);
+}
+
+.mac-action-tabs::before {
+  right: 2px;
+  top: 4px;
+  width: 13px;
+  height: 13px;
+  border: 1.6px solid currentColor;
+  border-radius: 3px;
+}
+
+.mac-action-tabs::after {
+  left: 2px;
+  top: 7px;
+  width: 13px;
+  height: 13px;
+  border: 1.6px solid currentColor;
+  border-radius: 3px;
+}
+
+#content {
+  width: 100%;
+  height: 700px;
+  border: none;
+  border-top: 1px solid rgba(0, 0, 0, 0.42);
+  border-bottom-right-radius: 8px;
+  border-bottom-left-radius: 8px;
+  display: block;
+  background-color: white;
+}
+
+/* Final browser-bar layout: one visible row, stable columns. */
+#title-bar {
+  display: grid !important;
+  grid-template-columns: 92px 54px 74px minmax(320px, 544px) 1fr 166px;
+  align-items: center;
+  column-gap: 0;
+  padding: 0 16px 0 20px;
+}
+
+#title-bar::before,
+#title-bar::after {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  z-index: 20;
+  color: rgba(255, 255, 255, 0.62);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI Symbol", "Segoe UI", sans-serif;
+}
+
+#title-bar::before {
+  content: "▣  ˅        ‹     ›";
+  left: 104px;
+  font-size: 24px;
+  font-weight: 300;
+  letter-spacing: 7px;
+  color: rgba(255, 255, 255, 0.42);
+}
+
+#title-bar::after {
+  content: "▭                                🔒 google.com                         ↻                                      ⇩    ⇧    +    ▣";
+  left: 306px;
+  right: 14px;
+  height: 25px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 7px;
+  background:
+    linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.075) 0,
+      rgba(255, 255, 255, 0.075) 544px,
+      transparent 544px
+    );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 1px 0 rgba(0, 0, 0, 0.16);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 25px;
+  white-space: pre;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+#title-bar > * {
+  position: static !important;
+  transform: none !important;
+  visibility: visible !important;
+}
+
+.dots,
+.mac-window-tools,
+.mac-nav,
+.mac-toolbar-actions {
+  top: auto !important;
+  left: auto !important;
+  right: auto !important;
+}
+
+.dots {
+  grid-column: 1;
+  justify-self: start;
+}
+
+.mac-window-tools {
+  grid-column: 2;
+  justify-self: start;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.mac-nav {
+  grid-column: 3;
+  justify-self: start;
+}
+
+.mac-address-shell {
+  grid-column: 4;
+  width: 100% !important;
+  min-width: 0 !important;
+  justify-self: stretch;
+}
+
+.mac-toolbar-actions {
+  grid-column: 6;
+  justify-self: end;
+}
+
+.mac-window-icon {
+  border-color: rgba(255, 255, 255, 0.46);
+}
+
+.mac-window-icon::before,
+.mac-window-icon::after {
+  background: rgba(255, 255, 255, 0.46);
+}
+
+.mac-window-icon::after {
+  box-shadow: 0 5px 0 rgba(255, 255, 255, 0.46);
+}
+
+.mac-nav-btn,
+.mac-action,
+.mac-address-reload {
+  color: rgba(255, 255, 255, 0.54);
+}
+
+.mac-address-pill,
+#url-bar {
+  opacity: 1 !important;
+  background: rgba(255, 255, 255, 0.075);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.mac-address-page-icon {
+  border-color: rgba(255, 255, 255, 0.48);
+}
+
+.mac-address-page-icon::before {
+  background: rgba(255, 255, 255, 0.48);
+}
+
+@media (max-width: 980px) {
+  #title-bar {
+    grid-template-columns: 84px 48px 62px minmax(190px, 1fr) 8px 128px;
+    padding: 0 10px 0 16px;
+  }
+
+  .mac-nav {
+    gap: 8px;
+  }
+
+  .mac-toolbar-actions {
+    gap: 10px;
+  }
+
+  .mac-address-shell {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+}
+
+/* Mobile / tablet override */
+.is-mobile #window {
+  position: fixed !important;
+  left: 0 !important;
+  right: auto !important;
+  top: 0 !important;
+  width: var(--initial-window-width, 100vw) !important;
+  max-width: none !important;
+  height: var(--initial-window-height, 100vh) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+.is-mobile #content {
+  width: var(--mobile-content-width, 100vw) !important;
+  height: var(--mobile-content-height, calc(var(--initial-window-height, 100vh) - 58px)) !important;
+}
+
+/* Reliable painted layer for the teaching demo. */
+#title-bar::before,
+#title-bar::after {
+  content: none !important;
+}
+
+#title-bar > .painted-toolbar {
+  position: absolute !important;
+  inset: 0 14px 0 104px !important;
+  display: grid !important;
+  grid-template-columns: 174px 544px 1fr 146px;
+  align-items: center;
+  z-index: 30;
+  pointer-events: none;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI Symbol", "Segoe UI", sans-serif;
+  color: rgba(255, 255, 255, 0.56);
+}
+
+.painted-left {
+  display: grid;
+  grid-template-columns: 26px 26px 42px 42px;
+  align-items: center;
+  font-size: 23px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.painted-side {
+  font-size: 18px;
+}
+
+.painted-caret {
+  font-size: 17px;
+}
+
+.painted-arrow {
+  font-size: 32px;
+  line-height: 1;
+}
+
+.painted-address {
+  display: grid;
+  grid-template-columns: 28px 1fr auto 1fr 24px;
+  align-items: center;
+  height: 25px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.075);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 1px 0 rgba(0, 0, 0, 0.16);
+  box-sizing: border-box;
+}
+
+.painted-page {
+  grid-column: 1;
+  justify-self: center;
+  font-size: 18px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.painted-lock {
+  grid-column: 2;
+  justify-self: end;
+  margin-right: 6px;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.84);
+}
+
+.painted-domain {
+  grid-column: 3;
+  font-size: 13px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.painted-reload {
+  grid-column: 5;
+  justify-self: center;
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.58);
+}
+
+.painted-actions {
+  grid-column: 4;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  align-items: center;
+  justify-items: center;
+  font-size: 21px;
+  color: rgba(255, 255, 255, 0.44);
+}
+
+.mac-window-tools,
+.mac-nav,
+.mac-address-shell,
+.mac-toolbar-actions {
+  opacity: 0 !important;
+}
+
+@media (max-width: 860px) {
+  #title-bar > .painted-toolbar {
+    left: 94px !important;
+    grid-template-columns: 140px minmax(240px, 1fr) 8px 116px;
+  }
+
+  .painted-left {
+    grid-template-columns: 22px 22px 32px 32px;
+  }
+
+  .painted-actions {
+    font-size: 18px;
+  }
+}
+
+/* Polished reference match. */
+#window {
+  top: 0 !important;
+  border-radius: 6px !important;
+}
+
+#title-bar-width {
+  height: 36px !important;
+  background: linear-gradient(180deg, #565153 0%, #504c4f 100%) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  border-radius: 6px 6px 0 0 !important;
+}
+
+.dots {
+  position: absolute !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  left: 21px !important;
+  right: auto !important;
+  gap: 8px !important;
+  z-index: 40;
+}
+
+.dot {
+  width: 11px !important;
+  height: 11px !important;
+  box-shadow:
+    inset 0 0 0 0.5px rgba(0, 0, 0, 0.28),
+    0 1px 1px rgba(0, 0, 0, 0.2) !important;
+}
+
+.dot.red {
+  background: #ff5f57 !important;
+  border-color: #e0443e !important;
+}
+
+.dot.amber {
+  background: #febc2e !important;
+  border-color: #df9f22 !important;
+}
+
+.dot.green {
+  background: #28c840 !important;
+  border-color: #20a834 !important;
+}
+
+#title-bar > .painted-toolbar {
+  inset: 0 16px 0 104px !important;
+  grid-template-columns: 150px 548px 1fr 154px !important;
+}
+
+.painted-left {
+  grid-template-columns: 27px 24px 38px 38px !important;
+  color: rgba(255, 255, 255, 0.5) !important;
+}
+
+.painted-side,
+.painted-caret,
+.painted-arrow,
+.painted-page,
+.painted-lock,
+.painted-reload,
+.painted-download,
+.painted-share,
+.painted-plus,
+.painted-tabs {
+  position: relative;
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+}
+
+.painted-side {
+  width: 18px;
+  height: 17px;
+  border: 1.7px solid currentColor;
+  border-radius: 2px;
+  box-sizing: border-box;
+}
+
+.painted-side::before {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 2px;
+  width: 1.6px;
+  height: 13px;
+  background: currentColor;
+}
+
+.painted-side::after {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  width: 3px;
+  height: 13px;
+  background:
+    linear-gradient(currentColor 0 0) 0 3px / 3px 1.5px no-repeat,
+    linear-gradient(currentColor 0 0) 0 8px / 3px 1.5px no-repeat;
+  box-shadow: none;
+}
+
+.painted-caret::before {
+  content: "";
+  position: absolute;
+  left: 7px;
+  top: 6px;
+  width: 5px;
+  height: 5px;
+  border-right: 1.6px solid currentColor;
+  border-bottom: 1.6px solid currentColor;
+  transform: rotate(45deg);
+}
+
+.painted-arrow::before {
+  content: "";
+  position: absolute;
+  top: 3px;
+  width: 10px;
+  height: 10px;
+  border-top: 1.8px solid currentColor;
+  border-left: 1.8px solid currentColor;
+}
+
+.painted-back::before {
+  left: 6px;
+  transform: rotate(-45deg);
+}
+
+.painted-forward::before {
+  left: 1px;
+  transform: rotate(135deg);
+}
+
+.painted-address {
+  height: 23px !important;
+  grid-template-columns: 34px 1fr auto 1fr 28px !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  border-radius: 7px !important;
+  background: rgba(255, 255, 255, 0.055) !important;
+}
+
+.painted-page {
+  width: 14px;
+  height: 13px;
+  border: 1.4px solid rgba(255, 255, 255, 0.46);
+  border-radius: 3px;
+  box-sizing: border-box;
+}
+
+.painted-page::before {
+  content: "";
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  top: 4px;
+  height: 1.4px;
+  background: rgba(255, 255, 255, 0.46);
+  box-shadow: 0 4px 0 rgba(255, 255, 255, 0.46);
+}
+
+.painted-lock {
+  width: 9px;
+  height: 8px;
+  margin-right: 6px !important;
+  align-self: center;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.painted-lock::before {
+  content: "";
+  position: absolute;
+  left: 1.5px;
+  top: -6px;
+  width: 4px;
+  height: 7px;
+  border: 1.4px solid rgba(255, 255, 255, 0.82);
+  border-bottom: 0;
+  border-radius: 6px 6px 0 0;
+}
+
+.painted-domain {
+  font-size: 13px !important;
+  color: rgba(255, 255, 255, 0.86) !important;
+}
+
+.painted-reload::before {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 4px;
+  width: 11px;
+  height: 11px;
+  border: 1.7px solid rgba(255, 255, 255, 0.64);
+  border-left-color: transparent;
+  border-bottom-color: rgba(255, 255, 255, 0.48);
+  border-radius: 50%;
+}
+
+.painted-reload::after {
+  content: "";
+  position: absolute;
+  right: 2px;
+  top: 3px;
+  width: 6px;
+  height: 6px;
+  border-top: 1.7px solid rgba(255, 255, 255, 0.64);
+  border-right: 1.7px solid rgba(255, 255, 255, 0.64);
+  transform: rotate(16deg);
+}
+
+.painted-actions {
+  grid-template-columns: repeat(4, 24px) !important;
+  gap: 10px;
+  justify-content: end;
+  color: rgba(255, 255, 255, 0.52) !important;
+}
+
+.painted-download::before {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 3px;
+  width: 13px;
+  height: 13px;
+  border: 1.7px solid currentColor;
+  border-radius: 50%;
+}
+
+.painted-download::after {
+  content: "";
+  position: absolute;
+  left: 9px;
+  top: 5px;
+  width: 1.7px;
+  height: 8px;
+  background: currentColor;
+  box-shadow:
+    -3px 5px 0 -1px currentColor,
+    3px 5px 0 -1px currentColor;
+}
+
+.painted-share::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  bottom: 2px;
+  width: 14px;
+  height: 13px;
+  border: 1.7px solid currentColor;
+  border-top: 0;
+  border-radius: 3px;
+}
+
+.painted-share::after {
+  content: "";
+  position: absolute;
+  left: 11px;
+  top: 1px;
+  width: 1.7px;
+  height: 13px;
+  background: currentColor;
+}
+
+.painted-share {
+  overflow: visible;
+}
+
+.painted-share span {
+  display: none;
+}
+
+.painted-share::before {
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.painted-share::after {
+  box-shadow:
+    -4px 4px 0 -1px currentColor,
+    4px 4px 0 -1px currentColor;
+}
+
+.painted-plus::before,
+.painted-plus::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 9px;
+  width: 14px;
+  height: 1.8px;
+  background: currentColor;
+  border-radius: 2px;
+}
+
+.painted-plus::after {
+  transform: rotate(90deg);
+}
+
+.painted-tabs::before,
+.painted-tabs::after {
+  content: "";
+  position: absolute;
+  width: 13px;
+  height: 13px;
+  border: 1.7px solid currentColor;
+  border-radius: 3px;
+  box-sizing: border-box;
+}
+
+.painted-tabs::before {
+  right: 2px;
+  top: 3px;
+}
+
+.painted-tabs::after {
+  left: 2px;
+  top: 6px;
+}
+
+/* Right-side refinement: keep reload inside the address bar and fit all actions. */
+#title-bar > .painted-toolbar {
+  grid-template-columns: 150px minmax(360px, 548px) 1fr 132px !important;
+}
+
+.painted-address {
+  overflow: hidden;
+}
+
+.painted-reload {
+  justify-self: center;
+  width: 18px !important;
+  height: 18px !important;
+}
+
+.painted-reload::before {
+  left: 3px !important;
+  top: 3px !important;
+  width: 10px !important;
+  height: 10px !important;
+  border-width: 1.45px !important;
+}
+
+.painted-reload::after {
+  right: 3px !important;
+  top: 2px !important;
+  width: 5px !important;
+  height: 5px !important;
+  border-width: 1.45px !important;
+}
+
+.painted-actions {
+  grid-template-columns: repeat(4, 18px) !important;
+  gap: 12px !important;
+  justify-content: end !important;
+  justify-items: center !important;
+  color: rgba(255, 255, 255, 0.5) !important;
+}
+
+.painted-download,
+.painted-share,
+.painted-plus,
+.painted-tabs {
+  width: 18px !important;
+  height: 18px !important;
+}
+
+.painted-download::before {
+  left: 2px !important;
+  top: 2px !important;
+  width: 13px !important;
+  height: 13px !important;
+  border-width: 1.45px !important;
+  border-style: solid !important;
+  border-color: currentColor !important;
+  border-radius: 50% !important;
+  background: transparent !important;
+}
+
+.painted-download::after {
+  left: 8px !important;
+  top: 5px !important;
+  width: 5px !important;
+  height: 5px !important;
+  background: transparent !important;
+  border-right: 1.45px solid currentColor !important;
+  border-bottom: 1.45px solid currentColor !important;
+  transform: rotate(45deg) !important;
+  box-shadow: 3px -3px 0 -2px currentColor !important;
+}
+
+.painted-download {
+  background:
+    linear-gradient(currentColor 0 0) 8px 4px / 1.45px 8px no-repeat !important;
+}
+
+.painted-share::before {
+  left: 3px !important;
+  bottom: 1px !important;
+  width: 12px !important;
+  height: 11px !important;
+  border: 1.45px solid currentColor !important;
+  border-top: 0 !important;
+  border-radius: 2px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.painted-share::after {
+  left: 8px !important;
+  top: 1px !important;
+  width: 5px !important;
+  height: 5px !important;
+  background: transparent !important;
+  border-left: 1.45px solid currentColor !important;
+  border-top: 1.45px solid currentColor !important;
+  transform: rotate(45deg) !important;
+  box-shadow: none !important;
+}
+
+.painted-share {
+  background:
+    linear-gradient(currentColor 0 0) 8px 1px / 1.45px 12px no-repeat !important;
+}
+
+.painted-plus::before,
+.painted-plus::after {
+  left: 3px !important;
+  top: 8px !important;
+  width: 12px !important;
+  height: 1.45px !important;
+}
+
+.painted-tabs::before,
+.painted-tabs::after {
+  width: 12px !important;
+  height: 12px !important;
+  border-width: 1.45px !important;
+}
+
+.painted-tabs::before {
+  right: 1px !important;
+  top: 2px !important;
+}
+
+.painted-tabs::after {
+  left: 1px !important;
+  top: 5px !important;
+}
+
+/* SVG icon pass: crisp, closer to the real browser glyphs. */
+.painted-toolbar .toolbar-svg {
+  display: block;
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  background: none !important;
+  box-shadow: none !important;
+}
+
+.painted-toolbar .toolbar-svg::before,
+.painted-toolbar .toolbar-svg::after {
+  content: none !important;
+}
+
+.painted-toolbar .toolbar-side {
+  width: 19px;
+  height: 19px;
+}
+
+.painted-toolbar .toolbar-caret {
+  width: 15px;
+  height: 15px;
+  stroke-width: 1.8;
+  opacity: 0.9;
+}
+
+.painted-toolbar .toolbar-arrow {
+  width: 22px;
+  height: 22px;
+  stroke-width: 1.9;
+  opacity: 0.72;
+}
+
+.painted-toolbar .toolbar-page {
+  grid-column: 1;
+  justify-self: center;
+  width: 16px;
+  height: 16px;
+  stroke-width: 1.55;
+  color: rgba(255, 255, 255, 0.52);
+}
+
+.painted-toolbar .toolbar-lock {
+  grid-column: 2;
+  justify-self: end;
+  width: 13px;
+  height: 13px;
+  margin-right: 6px;
+  stroke-width: 2;
+  color: rgba(255, 255, 255, 0.86);
+}
+
+.painted-toolbar .toolbar-reload {
+  grid-column: 5;
+  justify-self: center;
+  width: 17px;
+  height: 17px;
+  stroke-width: 1.75;
+  color: rgba(255, 255, 255, 0.66);
+}
+
+.painted-toolbar .toolbar-download,
+.painted-toolbar .toolbar-share,
+.painted-toolbar .toolbar-plus,
+.painted-toolbar .toolbar-tabs {
+  width: 18px !important;
+  height: 18px !important;
+  stroke-width: 1.75;
+  color: rgba(255, 255, 255, 0.54);
+}
+
+.painted-toolbar .toolbar-plus {
+  width: 17px !important;
+  height: 17px !important;
+  stroke-width: 1.9;
+}
+
+.painted-toolbar .toolbar-tabs {
+  width: 19px !important;
+  height: 19px !important;
+}
+
+/* Keep the mock browser as a movable window instead of pinning it to the page edge. */
+#window {
+  --window-min-width: 980px;
+  --window-min-height: 260px;
+  left: var(--window-left, 40px) !important;
+  top: var(--window-top, 40px) !important;
+  width: var(--window-width, min(1344px, calc(100vw - 80px))) !important;
+  height: var(--window-height, auto) !important;
+  max-width: calc(100vw - 80px) !important;
+  min-width: var(--window-min-width, 980px);
+  min-height: var(--window-min-height, 260px);
+  border-radius: 6px !important;
+  touch-action: none;
+}
+
+#content {
+  height: var(--content-height, 700px) !important;
+}
+
+.resize-handle {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  z-index: 100005;
+  background: transparent;
+}
+
+.resize-handle.nw {
+  left: -3px;
+  top: -3px;
+  cursor: nwse-resize;
+}
+
+.resize-handle.ne {
+  right: -3px;
+  top: -3px;
+  cursor: nesw-resize;
+}
+
+.resize-handle.sw {
+  left: -3px;
+  bottom: -3px;
+  cursor: nesw-resize;
+}
+
+.resize-handle.se {
+  right: -3px;
+  bottom: -3px;
+  cursor: nwse-resize;
+}
+
+.is-mobile .resize-handle {
+  display: none !important;
+}
+
+#title-bar,
+#title-bar-width {
+  cursor: move;
+}
+
+/* Safari light mode: applied only when the OS/browser preference is light. */
+@media (prefers-color-scheme: light) {
+  #window {
+    background: transparent !important;
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.2) !important;
+    border-radius: 9px 9px 0 0 !important;
+  }
+
+  #title-bar-width {
+    height: 58px !important;
+    background: rgba(247, 248, 250, 0.94) !important;
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+    border-bottom: 1px solid #d9dde1 !important;
+    border-radius: 9px 9px 0 0 !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9) !important;
+    backdrop-filter: blur(18px);
+  }
+
+  #title-bar {
+    height: 100% !important;
+  }
+
+  .dots {
+    left: 18px !important;
+    gap: 8px !important;
+  }
+
+  .dot {
+    width: 11px !important;
+    height: 11px !important;
+    box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.18) !important;
+  }
+
+  #title-bar > .painted-toolbar {
+    inset: 0 14px 0 112px !important;
+    display: grid !important;
+    grid-template-columns: 206px minmax(360px, 438px) 1fr 108px !important;
+    align-items: center !important;
+    color: #9aa0a6 !important;
+  }
+
+  .painted-left {
+    grid-template-columns: 32px 36px 36px 36px !important;
+    color: #a1a7ad !important;
+  }
+
+  .painted-toolbar .toolbar-side {
+    width: 19px !important;
+    height: 19px !important;
+    stroke-width: 1.65 !important;
+    color: #7f858b !important;
+  }
+
+  .painted-toolbar .toolbar-caret {
+    display: none !important;
+  }
+
+  .painted-toolbar .toolbar-arrow {
+    width: 21px !important;
+    height: 21px !important;
+    stroke-width: 1.55 !important;
+    color: #b7bdc3 !important;
+  }
+
+  .painted-address {
+    height: 30px !important;
+    grid-template-columns: 30px 1fr auto 1fr 0 !important;
+    border: 0 !important;
+    border-radius: 5px !important;
+    background: #e9ecef !important;
+    box-shadow: none !important;
+  }
+
+  .painted-toolbar .toolbar-page {
+    display: none !important;
+  }
+
+  .painted-toolbar .toolbar-lock {
+    grid-column: 1 !important;
+    justify-self: center !important;
+    width: 16px !important;
+    height: 16px !important;
+    margin-right: 0 !important;
+    color: #9aa0a6 !important;
+    stroke-width: 1.8 !important;
+  }
+
+  .painted-domain {
+    grid-column: 3 !important;
+    color: #a3a8ad !important;
+    font-family: "Segoe UI", Roboto, Arial, sans-serif !important;
+    font-size: 13px !important;
+    font-weight: 400 !important;
+    letter-spacing: 0 !important;
+  }
+
+  .painted-domain {
+    font-size: 0 !important;
+  }
+
+  .painted-domain::before {
+    content: "Search or enter website name";
+    font-size: 13px;
+    color: #a3a8ad;
+    font-weight: 400;
+  }
+
+  .painted-toolbar .toolbar-reload {
+    display: none !important;
+  }
+
+  .painted-actions {
+    grid-column: 4 !important;
+    display: grid !important;
+    grid-template-columns: repeat(3, 24px) !important;
+    gap: 12px !important;
+    justify-content: end !important;
+    color: #9aa0a6 !important;
+  }
+
+  .painted-toolbar .toolbar-download {
+    display: none !important;
+  }
+
+  .painted-toolbar .toolbar-share,
+  .painted-toolbar .toolbar-plus,
+  .painted-toolbar .toolbar-tabs {
+    width: 20px !important;
+    height: 20px !important;
+    stroke-width: 1.7 !important;
+    color: #9aa0a6 !important;
+  }
+
+  .mac-window-tools,
+  .mac-nav,
+  .mac-address-shell,
+  .mac-toolbar-actions {
+    opacity: 0 !important;
+  }
+
+  #content {
+    border-top: 0 !important;
+  }
+}
+/* Safari light has no visible tab title/favicon in the toolbar. */
+@media (prefers-color-scheme: light) {
+  #logo-description,
+  .tab-title,
+  .tab-favicon {
+    display: none !important;
+    visibility: hidden !important;
+    width: 0 !important;
+    height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .painted-toolbar {
+    top: 0 !important;
+  }
+
+  .painted-left,
+  .painted-address,
+  .painted-actions {
+    align-self: center !important;
+  }
+}
+/* Safari light refinement pass: closer to the provided reference. */
+@media (prefers-color-scheme: light) {
+  #window {
+    left: var(--window-left, 0) !important;
+    top: var(--window-top, 0) !important;
+    width: var(--window-width, min(1220px, calc(100vw - 16px))) !important;
+    max-width: calc(100vw - 16px) !important;
+    min-width: 860px !important;
+    border-radius: 8px 8px 0 0 !important;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18) !important;
+  }
+
+  #title-bar-width {
+    height: 57px !important;
+    background: #fbfbfc !important;
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+    border-bottom: 1px solid #d7dce2 !important;
+    border-radius: 8px 8px 0 0 !important;
+  }
+
+  #title-bar {
+    display: block !important;
+    height: 100% !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .dots {
+    left: 19px !important;
+    top: 50% !important;
+    gap: 9px !important;
+  }
+
+  .dot {
+    width: 12px !important;
+    height: 12px !important;
+    border-width: 0 !important;
+  }
+
+  #title-bar > .painted-toolbar {
+    inset: 0 20px 0 98px !important;
+    grid-template-columns: 190px minmax(360px, 492px) 1fr 104px !important;
+    height: 100% !important;
+    align-items: center !important;
+    color: #8f969d !important;
+  }
+
+  .painted-left {
+    grid-template-columns: 34px 34px 34px 34px !important;
+    justify-content: start !important;
+    color: #8f969d !important;
+  }
+
+  .painted-toolbar .toolbar-side {
+    width: 20px !important;
+    height: 20px !important;
+    stroke-width: 1.55 !important;
+    color: #6f777f !important;
+  }
+
+  .painted-toolbar .toolbar-caret {
+    display: none !important;
+  }
+
+  .painted-toolbar .toolbar-arrow {
+    width: 22px !important;
+    height: 22px !important;
+    stroke-width: 1.65 !important;
+    color: #aeb5bc !important;
+  }
+
+  .painted-address {
+    height: 30px !important;
+    width: 100% !important;
+    grid-template-columns: 1fr auto 1fr !important;
+    justify-self: center !important;
+    border: 0 !important;
+    border-radius: 5px !important;
+    background: #eef1f4 !important;
+    box-shadow: none !important;
+  }
+
+  .painted-toolbar .toolbar-page,
+  .painted-toolbar .toolbar-lock,
+  .painted-toolbar .toolbar-reload {
+    display: none !important;
+  }
+
+  .painted-domain {
+    grid-column: 2 !important;
+    justify-self: center !important;
+    font-size: 0 !important;
+    line-height: 1 !important;
+    color: #a5abb1 !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif !important;
+    font-weight: 400 !important;
+  }
+
+  .painted-domain::before {
+    content: "Search or enter website name";
+    font-size: 13px;
+    color: #a5abb1;
+    font-weight: 400;
+  }
+
+  .painted-domain::after {
+    content: "";
+    display: inline-block;
+    width: 11px;
+    height: 11px;
+    margin-right: 6px;
+    margin-left: -247px;
+    vertical-align: -1px;
+    border: 1.5px solid #a5abb1;
+    border-radius: 50%;
+    box-sizing: border-box;
+    box-shadow: 7px 7px 0 -6px #a5abb1;
+  }
+
+  .painted-actions {
+    grid-column: 4 !important;
+    grid-template-columns: repeat(3, 22px) !important;
+    gap: 13px !important;
+    justify-content: end !important;
+    align-items: center !important;
+    color: #8f969d !important;
+  }
+
+  .painted-toolbar .toolbar-download {
+    display: none !important;
+  }
+
+  .painted-toolbar .toolbar-share,
+  .painted-toolbar .toolbar-plus,
+  .painted-toolbar .toolbar-tabs {
+    width: 21px !important;
+    height: 21px !important;
+    stroke-width: 1.6 !important;
+    color: #8f969d !important;
+  }
+
+  .mac-window-tools,
+  .mac-nav,
+  .mac-address-shell,
+  .mac-toolbar-actions,
+  #logo-description,
+  .tab-title,
+  .tab-favicon {
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+  }
+
+  #content {
+    border-top: 0 !important;
+  }
+}
+/* Repair Safari light layout after size edits: no wrapped placeholder, stable height. */
+@media (prefers-color-scheme: light) {
+  #title-bar-width {
+    height: 57px !important;
+    min-height: 57px !important;
+  }
+
+  #title-bar > .painted-toolbar {
+    inset: 0 20px 0 96px !important;
+    grid-template-columns: 190px minmax(420px, 492px) 1fr 104px !important;
+    height: 57px !important;
+  }
+
+  .painted-address {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    height: 30px !important;
+    min-width: 420px !important;
+    padding: 0 16px !important;
+    box-sizing: border-box !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+  }
+
+  .painted-domain {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 7px !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    line-height: 30px !important;
+  }
+
+  .painted-domain::before {
+    content: "" !important;
+    flex: 0 0 auto !important;
+    width: 11px !important;
+    height: 11px !important;
+    border: 1.45px solid #a5abb1 !important;
+    border-radius: 50% !important;
+    box-sizing: border-box !important;
+    box-shadow: 7px 7px 0 -6px #a5abb1 !important;
+  }
+
+  .painted-domain::after {
+    content: "Search or enter website name" !important;
+    display: inline !important;
+    width: auto !important;
+    height: auto !important;
+    margin: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    font-size: 13px !important;
+    line-height: 30px !important;
+    color: #a5abb1 !important;
+    white-space: nowrap !important;
+  }
+}
+/* Compact Safari light toolbar and correctly centered traffic lights. */
+@media (prefers-color-scheme: light) {
+  #title-bar-width {
+    height: 48px !important;
+    min-height: 48px !important;
+  }
+
+  #title-bar {
+    height: 48px !important;
+    min-height: 48px !important;
+  }
+
+  #title-bar > .painted-toolbar {
+    height: 48px !important;
+    inset: 0 18px 0 108px !important;
+    align-items: center !important;
+  }
+
+  .dots {
+    position: absolute !important;
+    left: 16px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    height: 12px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .dot {
+    width: 12px !important;
+    height: 12px !important;
+    margin: 0 !important;
+    flex: 0 0 auto !important;
+  }
+
+  .painted-address {
+    height: 28px !important;
+  }
+
+  .painted-domain,
+  .painted-domain::after {
+    line-height: 28px !important;
+  }
+}
+/* Final Safari light geometry: match dark-mode height, keep light colors. */
+@media (prefers-color-scheme: light) {
+  #title-bar-width {
+    height: 36px !important;
+    min-height: 36px !important;
+    background: #fbfbfc !important;
+  }
+
+  #title-bar {
+    height: 36px !important;
+    min-height: 36px !important;
+    display: block !important;
+    overflow: hidden !important;
+  }
+
+  .dots {
+    position: absolute !important;
+    left: 18px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    width: auto !important;
+    height: 12px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .dot {
+    width: 11px !important;
+    height: 11px !important;
+    margin: 0 !important;
+    border-width: 0 !important;
+    flex: 0 0 auto !important;
+  }
+
+  #title-bar > .painted-toolbar {
+    inset: 0 18px 0 108px !important;
+    height: 36px !important;
+    grid-template-columns: 172px minmax(360px, 492px) 1fr 104px !important;
+    align-items: center !important;
+  }
+
+  .painted-left,
+  .painted-actions {
+    align-self: center !important;
+  }
+
+  .painted-left {
+    grid-template-columns: 30px 30px 30px 30px !important;
+  }
+
+  .painted-toolbar .toolbar-side,
+  .painted-toolbar .toolbar-arrow,
+  .painted-toolbar .toolbar-share,
+  .painted-toolbar .toolbar-plus,
+  .painted-toolbar .toolbar-tabs {
+    width: 18px !important;
+    height: 18px !important;
+  }
+
+  .painted-address {
+    height: 28px !important;
+    min-width: 360px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+  }
+
+  .painted-domain,
+  .painted-domain::after {
+    line-height: 28px !important;
+    white-space: nowrap !important;
+  }
+}
+/* Final traffic-light fix: beat older #title-bar > * positioning rules. */
+@media (prefers-color-scheme: light) {
+  #title-bar > .dots {
+    position: absolute !important;
+    left: 22px !important;
+    top: 50% !important;
+    right: auto !important;
+    bottom: auto !important;
+    transform: translateY(-50%) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 8px !important;
+    width: auto !important;
+    height: 12px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    grid-column: auto !important;
+    justify-self: auto !important;
+    z-index: 50 !important;
+  }
+
+  #title-bar > .dots .dot {
+    display: block !important;
+    width: 12px !important;
+    height: 12px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    flex: 0 0 12px !important;
+    border-radius: 50% !important;
+    border: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  #title-bar > .dots .dot.red {
+    background: #ff5f57 !important;
+  }
+
+  #title-bar > .dots .dot.amber {
+    background: #fdbc2e !important;
+  }
+
+  #title-bar > .dots .dot.green {
+    background: #28c840 !important;
+  }
+}
+/* Light-mode traffic lights: anchor them to the Safari title bar like dark mode. */
+@media (prefers-color-scheme: light) {
+  #title-bar-width {
+    height: 36px !important;
+    min-height: 36px !important;
+  }
+
+  #title-bar {
+    position: relative !important;
+    height: 36px !important;
+    min-height: 36px !important;
+    padding: 0 !important;
+  }
+
+  #title-bar > .dots {
+    position: absolute !important;
+    left: 24px !important;
+    top: 50% !important;
+    right: auto !important;
+    bottom: auto !important;
+    transform: translateY(-50%) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 8px !important;
+    width: 68px !important;
+    height: 12px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    float: none !important;
+    line-height: 0 !important;
+    grid-column: auto !important;
+    justify-self: auto !important;
+    visibility: visible !important;
+  }
+
+  #title-bar > .dots > .dot {
+    display: block !important;
+    width: 12px !important;
+    min-width: 12px !important;
+    max-width: 12px !important;
+    height: 12px !important;
+    min-height: 12px !important;
+    max-height: 12px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    flex: 0 0 12px !important;
+    border: 0 !important;
+    border-radius: 50% !important;
+    box-shadow: none !important;
+  }
+}

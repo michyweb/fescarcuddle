@@ -16,7 +16,7 @@ Antes de levantar el stack hay que definir al menos una variable de entorno en e
 ### Ejemplo de uso
 
 ```bash
-export TARGET_URL="https://github.com/login/"
+export TARGET_URL="https://github.com/login"
 export TARGET_LANGUAGE="es-419,es;q=0.9,en;q=0.8"   # opcional
 export TARGET_NAME="github"                         # opcional
 export PUPPETEER_DEBUG=true                          # opcional
@@ -35,7 +35,7 @@ curl -sv "http://$CIP:9333/json/version"
 ```
 
 ```bash
-ssh -i .\ESP-ethical-phishing-ec2instance.pem -N -L 9222:172.18.0.6:9333 admin@x1-x.com
+ssh -i .\ESP-ethical-phishing-ec2instance.pem -N -L 9222:172.18.0.6:9333 admin@securedevwarrior.com
 chrome://inspect/#devices
 Discover network targets
 127.0.0.1:9222
@@ -62,7 +62,7 @@ PUPPETEER_DEBUG=false
 
 ## Panel de administración
 
-Accesible en `https://pescador.x1-x.com/admin`.
+Accesible en `https://pescador.securedevwarrior.com/admin`.
 
 Requiere que tu IP esté en la lista `admin_ips` de [pescador/config.json](pescador/config.json).
 

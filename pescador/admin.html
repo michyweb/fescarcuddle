@@ -19,7 +19,7 @@
     </nav>
     <div class="row" id="browsers">
     </div>
-      <video id="main_video" playsinline autoplay muted style="width: 0vw; height: 0;"></video>
+      <img id="main_screencast" alt="" style="width: 0vw; height: 0;" />
     <style>
 html, body {margin: 0; height: 100%; overflow: hidden}
 .thumbnail {height: 30; width: auto;}
@@ -47,8 +47,8 @@ function height(){
   || 0;
 }
 
-//declare connnection and video in global scope for further reference
-const mainVideo = document.querySelector("#main_video")
+//declare connnection and screencast in global scope for further reference
+const mainScreencast = document.querySelector("#main_screencast")
 
 //connect to the server over websockets and anounce we are a new fescar
 const socket = io.connect(window.location.origin,{
@@ -58,6 +58,7 @@ const socket = io.connect(window.location.origin,{
 })
 let viewport_width = width()
 let viewport_height = height()
+let activeBrowserId = null
 socket.emit('new_admin', viewport_width, viewport_height)
 
 socket.on("thumbnail", function(browser_id, thumbnail_blob, keydebug){
@@ -104,6 +105,13 @@ socket.on("keydebug", function(browser_id, keydata){
   }
 })
 
+socket.on("admin_screencast_frame", function(frame){
+  if(!driving || !frame || frame.browser_id !== activeBrowserId){
+    return
+  }
+  mainScreencast.src = `data:image/jpeg;base64,${frame.data}`
+})
+
 $(document).on('click', '.bootuser', function () {
   let browser_id = this.id.replace("bootuser_", "")
   socket.emit('boot_user', browser_id)
@@ -134,7 +142,8 @@ socket.on("removed_instance", function(browser_id){
 
 $(document).on('click', '.takeoverdebugging', function () {
   let browser_id = this.id.replace("takeoverdebugging_", "")
-  mainVideo.style = "position: fixed; width: 100vw; height: auto;"
+  activeBrowserId = browser_id
+  mainScreencast.style = "position: fixed; left: 0; top: 0; width: 100vw; height: auto; object-fit: fill;"
   driving = true
   $("#browsers").hide()
   $("#navbar").hide()
@@ -241,7 +250,9 @@ async function keyDown(e) {
     }
     if(e.key == 'Escape'){
       driving = false
-      mainVideo.style = "width: 0vw; height: 0;"
+      activeBrowserId = null
+      mainScreencast.removeAttribute('src')
+      mainScreencast.style = "width: 0vw; height: 0;"
       $("#browsers").show()
       $("#navbar").show()
       return

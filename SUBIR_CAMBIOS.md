@@ -7,10 +7,10 @@ rsync -avz --delete \
   --exclude 'pescador/user_data/' \
   -e "ssh -i ~/.ssh/ESP-ethical-phishing-ec2instance.pem" \
   /mnt/c/Users/ricar/repos/fescarcuddle/ \
-  admin@x1-x.com:/home/admin/fescarcaddle/
+  admin@securedevwarrior.com:/home/admin/fescarcaddle/
 
 # 2. En el servidor: reconstruir y levantar
-ssh -i ~/.ssh/ESP-ethical-phishing-ec2instance.pem admin@x1-x.com \
+ssh -i ~/.ssh/ESP-ethical-phishing-ec2instance.pem admin@securedevwarrior.com \
   "cd /home/admin/fescarcaddle && docker compose build && docker compose up -d && docker builder prune -f"
 ```
 
@@ -28,6 +28,6 @@ docker volume prune -f
 ```bash
 rsync -avz --delete \
   -e "ssh -i ~/.ssh/ESP-ethical-phishing-ec2instance.pem" \
-  admin@x1-x.com:/home/admin/fescarcaddle/ \
+  admin@securedevwarrior.com:/home/admin/fescarcaddle/ \
   /mnt/c/Users/ricar/repos/fescarcuddle/
 ```

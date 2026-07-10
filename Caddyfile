@@ -5,7 +5,9 @@
 :443 {
         log
 
-        tls /etc/letsencrypt/live/x1-x.com/fullchain.pem /etc/letsencrypt/live/x1-x.com/privkey.pem
+        #tls /etc/letsencrypt/live/x1-x.com/fullchain.pem /etc/letsencrypt/live/x1-x.com/privkey.pem
+        tls /etc/letsencrypt/live/securedevwarrior.com/fullchain.pem /etc/letsencrypt/live/securedevwarrior.com/privkey.pem
+
 
         header {
                 -Server
@@ -13,7 +15,7 @@
         }
 
         # Debug Server
-        @debug host debug.x1-x.com
+        @debug host debug.securedevwarrior.com
         handle @debug {
                 header {
                         +Access-Control-Allow-Origin "*"
@@ -33,7 +35,7 @@
         }
 
         # Pescador
-        @pescador host pescador.x1-x.com *.pescador.x1-x.com
+        @pescador host pescador.securedevwarrior.com *.pescador.securedevwarrior.com
         handle @pescador {
                 header {
                         +X-Content-Type-Options "nosniff"
@@ -44,8 +46,9 @@
                 }
         }
 
-        # Browser Front (default - x1-x.com y www)
-        handle {
+        # Browser Front (browser.securedevwarrior.com)
+        @browser_front host browser.securedevwarrior.com
+        handle @browser_front {
                 header {
                         +X-Content-Type-Options "nosniff"
                 }
@@ -54,12 +57,35 @@
                         header_up X-Real-IP {remote_host}
                 }
         }
+
+        # Example Page (securedevwarrior.com y www)
+        @example_page host securedevwarrior.com www.securedevwarrior.com
+        handle @example_page {
+                header {
+                        +X-Content-Type-Options "nosniff"
+                }
+                reverse_proxy example-page:3002 {
+                        header_up Host {host}
+                        header_up X-Real-IP {remote_host}
+                }
+        }
+
+        # Host no reconocido
+        handle {
+                respond "Host no configurado" 404
+        }
 }
 
 
 # sudo apt update
 # sudo apt install -y certbot
 # sudo certbot certonly --manual --preferred-challenges dns -d x1-x.com -d "*.x1-x.com" -d "*.pescador.x1-x.com"
+# sudo certbot certonly \
+#  --manual \
+#  --preferred-challenges dns \
+#  -d "securedevwarrior.com" \
+#  -d "*.securedevwarrior.com" \
+#  -d "*.pescador.securedevwarrior.com"
 # cd cuddlephish
 # sudo bash install_deps.sh
 # sudo docker run -d --name caddy --network=host -v ./Caddyfile:/etc/caddy/Caddyfile -v /etc/letsencrypt:/etc/letsencrypt:ro -v caddy_data:/data -v caddy_config:/config caddy

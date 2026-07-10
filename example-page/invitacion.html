@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Invitacion validada</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(140deg, #0d1b2e 0%, #102744 55%, #18406a 100%);
+      padding: 24px;
+    }
+
+    .invite-card {
+      width: 100%;
+      max-width: 560px;
+      background: #ffffff;
+      border-radius: 14px;
+      padding: 34px 28px;
+      box-shadow: 0 22px 54px rgba(0, 0, 0, 0.35);
+      text-align: center;
+    }
+
+    .invite-icon {
+      width: 54px;
+      height: 54px;
+      display: block;
+      margin: 0 auto 18px;
+      object-fit: cover;
+      border-radius: 8px;
+    }
+
+    .invite-title {
+      font-size: 1.45rem;
+      color: #0d1b2e;
+      margin-bottom: 10px;
+      font-weight: 800;
+    }
+
+    .invite-text {
+      color: #334155;
+      line-height: 1.6;
+      margin-bottom: 18px;
+      font-size: 0.95rem;
+    }
+
+    .invite-highlight {
+      display: inline-block;
+      background: #e8f4ff;
+      color: #0b4fa4;
+      border: 1px solid #bfdbfe;
+      border-radius: 8px;
+      padding: 4px 10px;
+      font-weight: 700;
+      margin: 2px 0 8px;
+    }
+
+    .invite-redirect {
+      color: #64748b;
+      font-size: 0.9rem;
+    }
+
+    .invite-link {
+      color: #1565c0;
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .invite-link:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <main class="invite-card">
+    <img src="iconweb.png" alt="Secure Dev Warrior" class="invite-icon">
+    <h1 class="invite-title">Tu invitacion fue validada</h1>
+    <p class="invite-text">
+      Hemos verificado correctamente tu invitacion.
+      <span class="invite-highlight">Ya puedes iniciar sesion con SSO.</span>
+      En 20 segundos te redirigiremos automaticamente a la pantalla de inicio de sesion.
+    </p>
+    <p class="invite-redirect">
+      Si no redirige automaticamente, haz clic en
+      <a href="/login.html" class="invite-link">Ir a iniciar sesion</a>.
+    </p>
+  </main>
+
+  <script>
+    setTimeout(function () {
+      window.location.href = '/login.html';
+    }, 20000);
+  </script>
+</body>
+</html>

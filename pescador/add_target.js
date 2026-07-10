@@ -47,10 +47,25 @@ var favicon_url = '';
     process.exit(1);
   }
 
-  console.log(`[ADD_TARGET] Adding target: ${login_page}`);
-
   const language_header = (language && language.trim()) ? language.trim() : 'es-419,es;q=0.9,en;q=0.8'
   const primary_language = language_header.split(',')[0].trim()
+
+  // Derive target name: use TARGET_NAME env var if set, otherwise extract from URL
+  const url_derived_name = login_page.split('/')[2].split('.').slice(-2, -1)[0]
+  const short_name = (process.env.TARGET_NAME && process.env.TARGET_NAME.trim()) ? process.env.TARGET_NAME.trim() : url_derived_name
+
+  console.log(`[ADD_TARGET] Target name: '${short_name}' for URL: ${login_page}`);
+
+  // Skip browser launch if target already exists in MongoDB
+  const existing_target = await Target.findOne({ name: short_name });
+  if (existing_target) {
+    console.log(`[ADD_TARGET] Target '${short_name}' already exists in MongoDB — skipping browser navigation.`);
+    console.log(`[ADD_TARGET] Existing: login_page=${existing_target.login_page} tab_title=${existing_target.tab_title}`);
+    await mongoose.disconnect();
+    process.exit(0);
+  }
+
+  console.log(`[ADD_TARGET] Adding new target: ${login_page}`);
 
   // Setup directories
   try {
@@ -106,8 +121,6 @@ var favicon_url = '';
       // Ignore when browser prevents overriding navigator properties.
     }
   }, primary_language)
-
-  const short_name = login_page.split("/")[2].split('.').slice(-2, -1)[0]
 
   page.on('response', async response => {
     let mime_type = response.headers()['content-type']
