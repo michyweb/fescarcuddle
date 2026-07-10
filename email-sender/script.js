@@ -28,10 +28,10 @@ const transporter = nodemailer.createTransport({
 
 await transporter.sendMail({
   from: '"Secure Dev Warrior" <postmaster@mg.securedevwarrior.com>',
-  to: "enrique@masosl.com",
-  subject: "Invitación a Secure Dev Warrior: training de PHP",
+  to: "ricardomr.sabrinamm@gmail.com",
+  subject: "Invitación a Secure Dev Warrior: training de desarrollo de código seguro en PHP",
   text: renderTemplate(
-    `Hola,\n\nSe te ha dado de alta en Secure Dev Warrior. Podrás acceder con tu cuenta de GitHub.\n\nPuedes usar el siguiente enlace para aceptar la invitación: {{invitationLink}}.\n\nLa invitación caduca en 24 horas, el {{invitationExpiresAt}}.\n\nAdemás, se te ha concedido acceso al training de desarrollo seguro en PHP durante 3 meses.\n\nSi no has solicitado este acceso, puedes ignorar este mensaje.\n`,
+    `Hola,\n\nSe te ha dado de alta en Secure Dev Warrior. Podrás acceder con tu cuenta de GitHub.\n\nPuedes usar el siguiente enlace para aceptar la invitación: {{invitationLink}}.\n\nLa invitación caduca en 24 horas, el {{invitationExpiresAt}}.\n\nAdemás, se te ha concedido acceso al training de desarrollo de código seguro en PHP durante 3 meses.\n\nSi no has solicitado este acceso, puedes ignorar este mensaje.\n`,
     {
       invitationLink,
       invitationExpiresAt,
@@ -42,7 +42,7 @@ await transporter.sendMail({
     invitationLink,
     invitationExpiresAt,
     trainingDuration: "3 meses",
-    trainingName: "desarrollo seguro en PHP",
+    trainingName: "desarrollo de código seguro en PHP",
   }),
   attachments: [
     {

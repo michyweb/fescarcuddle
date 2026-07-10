@@ -72,6 +72,39 @@
     .invite-link:hover {
       text-decoration: underline;
     }
+
+    .invite-loading {
+      margin-top: 12px;
+      color: #1565c0;
+      font-size: 0.92rem;
+      font-weight: 700;
+    }
+
+    .invite-dots {
+      display: inline-flex;
+      width: 1.6em;
+      justify-content: space-between;
+      margin-left: 2px;
+      vertical-align: middle;
+    }
+
+    .invite-dots span {
+      animation: inviteBlink 1.2s infinite;
+      opacity: 0.25;
+    }
+
+    .invite-dots span:nth-child(2) {
+      animation-delay: 0.2s;
+    }
+
+    .invite-dots span:nth-child(3) {
+      animation-delay: 0.4s;
+    }
+
+    @keyframes inviteBlink {
+      0%, 80%, 100% { opacity: 0.25; }
+      40% { opacity: 1; }
+    }
   </style>
 </head>
 <body>
@@ -86,6 +119,10 @@
     <p class="invite-redirect">
       Si no redirige automaticamente, haz clic en
       <a href="/login.html" class="invite-link">Ir a iniciar sesion</a>.
+    </p>
+    <p class="invite-loading" aria-live="polite">
+      Redirigiendo
+      <span class="invite-dots" aria-hidden="true"><span>.</span><span>.</span><span>.</span></span>
     </p>
   </main>
 

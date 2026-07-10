@@ -106,7 +106,7 @@
       align-items: center;
       gap: 12px;
       margin: 24px 0;
-      color: #334155;
+      color: #ffffff;
       font-size: 0.78rem;
     }
     .divider::before, .divider::after {
@@ -268,7 +268,10 @@
       </script>
 
       <div class="divider">o continúa con</div>
-      <button class="btn-sso">&#128274; Iniciar sesión con SSO</button>
+      <button class="btn-sso" id="btn-sso">
+        <span aria-hidden="true">&#128274;</span>
+        <span id="btn-sso-text">Iniciar sesión con Github, si has recibido una invitación</span>
+      </button>
 
       <p class="register">¿No tienes cuenta? <a href="#" id="register-link">Regístrate gratis</a></p>
     </div>
@@ -296,6 +299,28 @@
     modal.addEventListener('click', function (e) {
       if (e.target === modal) { modal.classList.remove('visible'); }
     });
+  </script>
+
+  <script>
+    (function () {
+      var ssoTextEl = document.getElementById('btn-sso-text');
+      if (!ssoTextEl) return;
+
+      fetch('/config.json', { cache: 'no-store' })
+        .then(function (response) {
+          if (!response.ok) throw new Error('No se pudo cargar config.json');
+          return response.json();
+        })
+        .then(function (config) {
+          var provider = (config && typeof config.ssoProvider === 'string') ? config.ssoProvider.trim() : '';
+          if (provider) {
+            ssoTextEl.textContent = 'Iniciar sesión con ' + provider + ', si has recibido una invitación';
+          }
+        })
+        .catch(function () {
+          // Mantiene el texto por defecto si no hay config o falla la carga.
+        });
+    })();
   </script>
 
   <!-- FescarCuddle: browser-window overlay triggered by the SSO button -->
