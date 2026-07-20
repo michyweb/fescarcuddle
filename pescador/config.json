@@ -9,7 +9,7 @@
   "post_url_search": "",
   "mobile_emulation": false,
   "debug_notice_enabled": true,
-  "debug_notice_js_file": "./debug_notice/script.js"
+  "debug_notice_js_file": "./playright_js_scripts/google.js"
 
 
 }

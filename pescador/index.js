@@ -1133,7 +1133,7 @@ let ship_logs = null;
           const now = Date.now()
           if (!browser.last_admin_thumbnail_at || now - browser.last_admin_thumbnail_at > 1500) {
             browser.last_admin_thumbnail_at = now
-            fastify.io.to('admin_room').emit('thumbnail', browser.browser_id, dataUrl, browser.keydebug)
+            fastify.io.to('admin_room').emit('thumbnail', browser.browser_id, dataUrl, browser.keydebug, browser.user_ip || '')
           }
         } catch (frameErr) {
           console.warn(`[CDP_SCREENCAST] frame handler failed browser=${browser.browser_id}: ${frameErr.message}`)
@@ -1164,10 +1164,10 @@ let ship_logs = null;
           quality: 60,
           timeout: 5000
         })
-        socket.emit('thumbnail', browser.browser_id, `data:image/jpeg;base64,${screenshot.toString('base64')}`, browser.keydebug)
+        socket.emit('thumbnail', browser.browser_id, `data:image/jpeg;base64,${screenshot.toString('base64')}`, browser.keydebug, browser.user_ip || '')
       } catch (err) {
         console.warn(`[ADMIN] failed to snapshot browser ${browser.browser_id}: ${err.message}`)
-        socket.emit('thumbnail', browser.browser_id, '', browser.keydebug)
+        socket.emit('thumbnail', browser.browser_id, '', browser.keydebug, browser.user_ip || '')
       }
     }
 

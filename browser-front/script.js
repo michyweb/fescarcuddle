@@ -309,20 +309,6 @@ function applyTabTitleFromEventData(rawValue) {
   document.title = value;
 }
 
-function setDocumentFavicon(value) {
-  if (!value || typeof value !== "string") {
-    return;
-  }
-
-  var favicon = document.querySelector("link[rel='icon']") || document.querySelector("link[rel='shortcut icon']");
-  if (!favicon) {
-    favicon = document.createElement("link");
-    favicon.setAttribute("rel", "icon");
-    document.head.appendChild(favicon);
-  }
-  favicon.setAttribute("href", value);
-}
-
 function applyFaviconFromEventData(rawValue) {
   if (typeof rawValue !== "string") {
     return;
@@ -337,7 +323,6 @@ function applyFaviconFromEventData(rawValue) {
     tabFavicon.src = value;
     tabFavicon.style.display = "";
   }
-  setDocumentFavicon(value);
 }
 
 function consumeLogPayload(payload) {
@@ -971,9 +956,6 @@ title.on('mousedown', function(e){
 	$(document.body).on('mousemove', function(e){
 		var itop = e.pageY + ypos - height;
 		var ileft = e.pageX + xpos - width;
-		var _margin = 14;
-		itop = Math.max(_margin, Math.min(itop, window.innerHeight - height - _margin));
-		ileft = Math.max(_margin, Math.min(ileft, window.innerWidth - width - _margin));
 		if(dr.hasClass("drag")){
 			dr.offset({top: itop,left: ileft});
 		}

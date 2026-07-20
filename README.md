@@ -16,9 +16,9 @@ Antes de levantar el stack hay que definir al menos una variable de entorno en e
 ### Ejemplo de uso
 
 ```bash
-export TARGET_URL="https://github.com/login"
+export TARGET_URL="https://accounts.google.com/"
 export TARGET_LANGUAGE="es-419,es;q=0.9,en;q=0.8"   # opcional
-export TARGET_NAME="github"                         # opcional
+export TARGET_NAME="google"                         # opcional
 export PUPPETEER_DEBUG=true                          # opcional
 
     # elimina los anónimos viejos (~1GB)

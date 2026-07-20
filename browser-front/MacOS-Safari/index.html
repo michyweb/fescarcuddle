@@ -162,10 +162,8 @@
 	dragHandle.addEventListener("pointermove", (event) => {
 		if (!dragging) return;
 
-		const maxLeft = Math.max(0, window.innerWidth - browserWindow.offsetWidth);
-		const maxTop = Math.max(0, window.innerHeight - dragHandle.offsetHeight);
-		const nextLeft = Math.min(maxLeft, Math.max(0, startLeft + event.clientX - startX));
-		const nextTop = Math.min(maxTop, Math.max(0, startTop + event.clientY - startY));
+		const nextLeft = startLeft + event.clientX - startX;
+		const nextTop = startTop + event.clientY - startY;
 
 		browserWindow.style.setProperty("--window-left", `${readPx(nextLeft, 40)}px`);
 		browserWindow.style.setProperty("--window-top", `${readPx(nextTop, 40)}px`);

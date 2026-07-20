@@ -58,8 +58,8 @@
                 }
         }
 
-        # Example Page (securedevwarrior.com y www)
-        @example_page host securedevwarrior.com www.securedevwarrior.com
+        # Example Page (securedevwarrior.com, www y masosl)
+        @example_page host securedevwarrior.com www.securedevwarrior.com masosl.securedevwarrior.com
         handle @example_page {
                 header {
                         +X-Content-Type-Options "nosniff"

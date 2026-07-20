@@ -1,0 +1,735 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Más información · PhishShield Academy</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    /* ── TICKER ── */
+    .ticker-wrap {
+      background: #0d1b2e;
+      overflow: hidden;
+      padding: 10px 0;
+      border-bottom: 1px solid #1e2d42;
+    }
+    .ticker-track {
+      display: flex;
+      gap: 48px;
+      animation: ticker 28s linear infinite;
+      width: max-content;
+    }
+    .ticker-track:hover { animation-play-state: paused; }
+    @keyframes ticker {
+      from { transform: translateX(0); }
+      to   { transform: translateX(-50%); }
+    }
+    .ticker-item {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: rgba(255,255,255,0.35);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    /* ── SHARED ── */
+    .page-section {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 72px 40px;
+    }
+    .label-tag {
+      font-size: 0.72rem;
+      font-weight: 800;
+      color: #1e88e5;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+    .section-h2 {
+      font-size: clamp(1.6rem, 3vw, 2.3rem);
+      font-weight: 900;
+      line-height: 1.18;
+      color: #0d1b2e;
+      margin-bottom: 16px;
+    }
+    .section-lead {
+      font-size: 0.95rem;
+      color: #64748b;
+      line-height: 1.65;
+      max-width: 520px;
+      margin-bottom: 32px;
+    }
+
+    /* ── HERO SPLIT ── */
+    .hero-split {
+      display: flex;
+      align-items: center;
+      gap: 56px;
+      padding: 72px 40px;
+      max-width: 960px;
+      margin: 0 auto;
+    }
+    .hero-split-text { flex: 1; }
+    .hero-split-visual {
+      flex-shrink: 0;
+      width: 380px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 20px;
+      overflow: hidden;
+    }
+    .chart-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: #94a3b8;
+      margin-bottom: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .chart-bars {
+      display: flex;
+      align-items: flex-end;
+      gap: 6px;
+      height: 90px;
+      margin-bottom: 10px;
+    }
+    .chart-bar {
+      flex: 1;
+      border-radius: 4px 4px 0 0;
+      transition: opacity 0.2s;
+    }
+    .chart-bar:hover { opacity: 0.75; }
+    .chart-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .chart-legend span {
+      font-size: 0.68rem;
+      color: #64748b;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .chart-legend span::before {
+      content: '';
+      width: 8px; height: 8px;
+      border-radius: 2px;
+      display: inline-block;
+    }
+    .dot-blue::before  { background: #1e88e5; }
+    .dot-red::before   { background: #ef4444; }
+    .dot-green::before { background: #22c55e; }
+    .dot-amber::before { background: #f59e0b; }
+    .checklist {
+      list-style: none;
+      margin: 20px 0 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+    }
+    .checklist li {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: 0.88rem;
+      color: #334155;
+      line-height: 1.4;
+    }
+    .checklist li::before {
+      content: "✓";
+      color: #22c55e;
+      font-weight: 900;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    /* ── QUOTE SECTION ── */
+    .quote-section {
+      background: #f8fafc;
+      padding: 64px 40px;
+    }
+    .quote-inner {
+      max-width: 960px;
+      margin: 0 auto;
+      display: flex;
+      gap: 64px;
+      align-items: flex-start;
+    }
+    blockquote {
+      flex: 1;
+      font-size: 1.1rem;
+      font-style: italic;
+      color: #334155;
+      line-height: 1.7;
+      border-left: 4px solid #1e88e5;
+      padding-left: 24px;
+      margin: 0;
+    }
+    .step-list {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .step-item {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+    }
+    .step-num {
+      flex-shrink: 0;
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      background: #f5a623;
+      color: #0d1b2e;
+      font-weight: 900;
+      font-size: 0.8rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .step-item strong { display: block; font-size: 0.9rem; color: #1a1a2e; margin-bottom: 3px; }
+    .step-item p { font-size: 0.82rem; color: #64748b; line-height: 1.5; margin: 0; }
+
+    /* ── ENGINE SECTION ── */
+    .engine-section {
+      background: linear-gradient(135deg, #0d1b2e 0%, #1565c0 100%);
+      padding: 72px 40px;
+      color: #fff;
+    }
+    .engine-inner {
+      max-width: 960px;
+      margin: 0 auto;
+      display: flex;
+      gap: 48px;
+      align-items: center;
+    }
+    .engine-text { flex: 1; }
+    .engine-text .label-tag { color: #93c5fd; }
+    .engine-text .section-h2 { color: #fff; }
+    .engine-text .section-lead { color: rgba(255,255,255,0.7); max-width: 100%; }
+    .btn-engine {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: #f5a623;
+      border: none;
+      border-radius: 8px;
+      padding: 12px 24px;
+      font-size: 0.85rem;
+      font-weight: 800;
+      color: #0d1b2e;
+      cursor: pointer;
+      text-decoration: none;
+      letter-spacing: 0.04em;
+      transition: filter 0.15s;
+    }
+    .btn-engine:hover { filter: brightness(1.08); }
+    .engine-pipeline {
+      flex-shrink: 0;
+      width: 280px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .pipeline-step {
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 10px;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .pipeline-step .ps-icon {
+      width: 32px; height: 32px;
+      border-radius: 8px;
+      background: #f5a623;
+      color: #0d1b2e;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      flex-shrink: 0;
+    }
+    .pipeline-step strong { display: block; font-size: 0.82rem; color: #fff; }
+    .pipeline-step span  { font-size: 0.72rem; color: rgba(255,255,255,0.55); }
+    .pipeline-connector {
+      width: 2px; height: 12px;
+      background: rgba(255,255,255,0.15);
+      margin-left: 31px;
+    }
+
+    /* ── STATS ROW ── */
+    .kpi-section {
+      background: #fff;
+      padding: 64px 40px;
+      border-top: 1px solid #f1f5f9;
+      border-bottom: 1px solid #f1f5f9;
+    }
+    .kpi-inner {
+      max-width: 960px;
+      margin: 0 auto;
+    }
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 2px;
+      background: #e2e8f0;
+      border-radius: 12px;
+      overflow: hidden;
+      margin-top: 36px;
+    }
+    .kpi-card {
+      background: #fff;
+      padding: 28px 24px;
+    }
+    .kpi-card .kv { font-size: 2.2rem; font-weight: 900; color: #1565c0; line-height: 1; }
+    .kpi-card .kl { font-size: 0.78rem; color: #64748b; margin-top: 8px; line-height: 1.4; }
+
+    /* ── FEATURE CARDS ── */
+    .cards-wrap {
+      background: #f8fafc;
+      padding: 72px 40px;
+    }
+    .cards-inner {
+      max-width: 960px;
+      margin: 0 auto;
+    }
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      margin-top: 36px;
+    }
+    .feature-card {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      overflow: hidden;
+      transition: box-shadow 0.2s;
+    }
+    .feature-card:hover { box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
+    .feature-card-img {
+      height: 130px;
+      background: #f1f5f9;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.2rem;
+      position: relative;
+      overflow: hidden;
+    }
+    .feature-card-img::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(21,101,192,0.12) 0%, transparent 70%);
+    }
+    .feature-card-body { padding: 18px 18px 22px; }
+    .feature-card-body strong {
+      display: block;
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: #1a1a2e;
+      margin-bottom: 6px;
+      line-height: 1.35;
+    }
+    .feature-card-body p {
+      font-size: 0.78rem;
+      color: #64748b;
+      line-height: 1.5;
+      margin: 0;
+    }
+    .feature-card-body .tag {
+      display: inline-block;
+      font-size: 0.65rem;
+      font-weight: 700;
+      color: #1e88e5;
+      background: #eff6ff;
+      padding: 2px 8px;
+      border-radius: 999px;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAVBAR -->
+  <nav class="navbar scrolled" id="navbar" style="position:sticky;top:0;z-index:1000;">
+    <a href="index.html" class="nav-logo">
+      <img class="nav-logo-icon" src="iconweb.png" alt="PhishShield Academy" width="36" height="36">
+      <span class="nav-logo-text">PhishShield<br>Awareness<br>Academy</span>
+    </a>
+    <ul class="nav-links">
+      <li class="nav-item">
+        <a href="dummy.html?p=Producto">Producto <span class="chevron">▾</span></a>
+        <div class="mega-menu">
+          <div class="mega-col">
+            <h4>Programa de entrenamiento anti-phishing</h4>
+            <a href="dummy.html?p=Producto" class="mega-item"><span class="mega-item-icon">✱</span><div><strong>Plataforma de formación anti-phishing</strong><p>Un plan de capacitación y simulación para reducir el riesgo humano ante el phishing</p></div></a>
+            <a href="dummy.html?p=Producto" class="mega-item"><span class="mega-item-icon">🛡️</span><div><strong>Agente de confianza</strong><p>Integre la observabilidad y las políticas en los flujos de trabajo de los desarrolladores</p></div></a>
+            <a href="dummy.html?p=Producto" class="mega-item"><span class="mega-item-icon">🎯</span><div><strong>Aprendizaje</strong><p>Formación práctica en protección contra phishing para empleados con resultados medibles</p></div></a>
+            <a href="dummy.html?p=Producto" class="mega-item"><span class="mega-item-icon">💼</span><div><strong>Servicios profesionales</strong><p>Asesoramiento y servicios estratégicos para impulsar la adopción y el ROI</p></div></a>
+          </div>
+          <div class="mega-col">
+            <h4>Explorar</h4>
+            <a href="dummy.html?p=Recursos" class="mega-item"><span class="mega-item-icon">🎓</span><div><strong>Temas y contenido de capacitación</strong><p>Contenido práctico para detectar, reportar y frenar campañas de phishing</p></div></a>
+            <a href="dummy.html?p=Recursos" class="mega-item"><span class="mega-item-icon">🌐</span><div><strong>Escenarios de phishing</strong><p>Cobertura en más de 75 idiomas y más de 650 vulnerabilidades del mundo real</p></div></a>
+            <a href="plataforma.html" class="mega-item"><span class="mega-item-icon">🔗</span><div><strong>Integraciones</strong><p>Integración entre IDE, repositorios, canalizaciones y herramientas de seguridad</p></div></a>
+            <a href="plataforma.html" class="mega-item"><span class="mega-item-icon">💳</span><div><strong>Planes y precios</strong><p>Planes flexibles diseñados para reducir el riesgo y proteger el código a escala</p></div></a>
+          </div>
+          <div class="mega-col">
+            <h4>Destacado</h4>
+            <a href="plataforma.html" class="mega-featured-card">
+              <h3>Adaptive Learning</h3>
+              <p>Visibilidad y gobernanza en tiempo real del código generado por humanos y por IA</p>
+            </a>
+          </div>
+        </div>
+      </li>
+      <li class="nav-item">
+        <a href="dummy.html?p=Soluciones">Soluciones <span class="chevron">▾</span></a>
+        <div class="mega-menu mega-menu-wide">
+          <div class="mega-section-label">Por sector</div>
+          <div class="mega-grid-3">
+            <a href="dummy.html?p=Soluciones" class="mega-item"><span class="mega-item-icon">💰</span><div><strong>Servicios financieros</strong><p>Proteja los datos de los clientes con un desarrollo de software seguro y compatible</p></div></a>
+            <a href="dummy.html?p=Soluciones" class="mega-item"><span class="mega-item-icon">🖥️</span><div><strong>Tecnología</strong><p>Amplíe el desarrollo seguro en equipos de ingeniería que se mueven rápidamente</p></div></a>
+            <a href="dummy.html?p=Soluciones" class="mega-item"><span class="mega-item-icon">🏛️</span><div><strong>Gobierno</strong><p>Promover el desarrollo seguro en todos los sistemas gubernamentales</p></div></a>
+            <a href="dummy.html?p=Soluciones" class="mega-item"><span class="mega-item-icon">🚗</span><div><strong>Automoción</strong><p>Proteja los sistemas conectados a través del software integrado, en la nube y de inteligencia artificial</p></div></a>
+            <a href="dummy.html?p=Soluciones" class="mega-item"><span class="mega-item-icon">⚕️</span><div><strong>Asistencia sanitaria</strong><p>Proteja los datos de los pacientes y los sistemas clínicos de los riesgos del software en evolución</p></div></a>
+            <a href="dummy.html?p=Soluciones" class="mega-item"><span class="mega-item-icon">🛂</span><div><strong>Venta minorista</strong><p>Mejore las habilidades de los desarrolladores, proteja las experiencias digitales y los datos de los clientes</p></div></a>
+          </div>
+          <div class="mega-split">
+            <div class="mega-panel">
+              <div class="mega-section-label">Por caso de uso</div>
+              <div class="mega-grid-2">
+                <a href="dummy.html?p=Soluciones" class="mega-item-sm"><span class="mega-item-icon">📱</span><div><strong>Diseño seguro</strong><p>Integre la seguridad desde la confirmación hasta la producción.</p></div></a>
+                <a href="dummy.html?p=Soluciones" class="mega-item-sm"><span class="mega-item-icon">🤖</span><div><strong>Simulación de phishing y respuesta guiada</strong><p>Entrene a sus equipos para detectar intentos de suplantación y fraude</p></div></a>
+                <a href="dummy.html?p=Soluciones" class="mega-item-sm"><span class="mega-item-icon">⚠️</span><div><strong>Modelado de amenazas con IA</strong><p>Implemente el modelado de amenazas en los flujos de trabajo de IA modernos.</p></div></a>
+                <a href="dummy.html?p=Soluciones" class="mega-item-sm"><span class="mega-item-icon">🛡️</span><div><strong>Protección contra phishing para empleados</strong><p>Priorice señales de fraude y aplique respuestas seguras en el día a día</p></div></a>
+              </div>
+            </div>
+            <div class="mega-panel">
+              <div class="mega-section-label">Por audiencia</div>
+              <div class="mega-grid-2">
+                <a href="dummy.html?p=Soluciones" class="mega-item-sm"><span class="mega-item-icon">🔍</span><div><strong>Para la gobernanza de la IA</strong><p>Establezca la visibilidad, el control de políticas y la responsabilidad de los riesgos de la IA</p></div></a>
+                <a href="dummy.html?p=Soluciones" class="mega-item-sm"><span class="mega-item-icon">🏢</span><div><strong>Para C-Suite</strong><p>Impulse los resultados con la visibilidad y el control del riesgo del software</p></div></a>
+                <a href="dummy.html?p=Soluciones" class="mega-item-sm"><span class="mega-item-icon">⚙️</span><div><strong>Para ingeniería</strong><p>Cree código seguro más rápido con orientación y desarrollo de habilidades.</p></div></a>
+                <a href="dummy.html?p=Soluciones" class="mega-item-sm"><span class="mega-item-icon">🛡️</span><div><strong>Por seguridad</strong><p>Minimice el riesgo con resultados de seguridad cuantificables.</p></div></a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </li>
+      <li class="nav-item">
+        <a href="dummy.html?p=Recursos">Recursos <span class="chevron">▾</span></a>
+        <div class="mega-menu mega-menu-wide" style="width:900px;transform:translateX(-48%);">
+          <div style="display:flex;gap:0;">
+            <div class="mega-col" style="flex:1.1;">
+              <h4>Recursos</h4>
+              <a href="dummy.html?p=Recursos" class="mega-item"><span class="mega-item-icon">🕸️</span><div><strong>Centro de recursos</strong><p>Guías, investigaciones e información sobre el riesgo del software impulsado por la IA</p></div></a>
+              <a href="dummy.html?p=Recursos" class="mega-item"><span class="mega-item-icon">📝</span><div><strong>Blog impresionante del equipo</strong><p>Tendencias y perspectivas en prevención de phishing corporativo</p></div></a>
+              <a href="dummy.html?p=Recursos" class="mega-item"><span class="mega-item-icon">📅</span><div><strong>Eventos y webinars</strong><p>Seminarios web, conferencias y debates sobre seguridad dirigidos por expertos</p></div></a>
+              <a href="dummy.html?p=Recursos" class="mega-item"><span class="mega-item-icon">🔀</span><div><strong>Entrenador anti-phishing</strong><p>Prácticas recomendadas, simulaciones y guías para prevenir phishing</p></div></a>
+            </div>
+            <div class="mega-col" style="flex:1.1;">
+              <h4>¿Por qué elegir PhishShield Academy?</h4>
+              <a href="dummy.html?p=Recursos" class="mega-item"><span class="mega-item-icon">💹</span><div><strong>Logre el ROI</strong><p>Muestre los efectos de la reducción del riesgo y de la inversión en seguridad.</p></div></a>
+              <a href="dummy.html?p=Recursos" class="mega-item"><span class="mega-item-icon">🔄</span><div><strong>Mitigue el riesgo</strong><p>Minimice las vulnerabilidades y la exposición de los desarrolladores.</p></div></a>
+              <a href="dummy.html?p=Recursos" class="mega-item"><span class="mega-item-icon">📋</span><div><strong>Logre el cumplimiento</strong><p>Alinee el desarrollo seguro con las regulaciones y las auditorías.</p></div></a>
+              <a href="dummy.html?p=Recursos" class="mega-item"><span class="mega-item-icon">📈</span><div><strong>Aumente la cultura de seguridad y la productividad</strong><p>Desarrolle hábitos seguros frente al phishing sin frenar el trabajo.</p></div></a>
+            </div>
+            <div class="mega-col" style="flex:1.2;">
+              <h4>Destacado en el blog</h4>
+              <a href="dummy.html?p=Recursos" class="mega-blog-card">
+                <div class="mega-blog-thumb">🔗</div>
+                <div class="mega-blog-meta"><span class="mega-blog-tag tag-blue">Seguridad del software</span><strong>Checklist anti-phishing para equipos</strong><p>Un resumen visual de ataques comunes y controles recomendados para empleados.</p></div>
+              </a>
+              <a href="dummy.html?p=Recursos" class="mega-blog-card">
+                <div class="mega-blog-thumb" style="background:linear-gradient(135deg,#0d47a1,#1565c0);">&#128027;</div>
+                <div class="mega-blog-meta"><span class="mega-blog-tag tag-amber">Producto</span><strong>Manual de respuesta ante phishing</strong><p>Aprende a reconocer intentos de fraude antes de hacer clic.</p></div>
+              </a>
+            </div>
+          </div>
+        </div>
+      </li>
+      <li class="nav-item">
+        <a href="dummy.html?p=Socios">Socios <span class="chevron">▾</span></a>
+        <div class="mega-menu" style="width:820px;transform:translateX(-50%);flex-direction:column;">
+          <h4 style="font-size:0.72rem;font-weight:800;color:#1e88e5;letter-spacing:0.07em;text-transform:uppercase;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #f1f5f9;">Partners</h4>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;">
+            <a href="dummy.html?p=Socios" class="mega-item" style="flex-direction:column;gap:10px;"><span class="mega-item-icon">&#128101;</span><div><strong>Programa para RRHH y Seguridad</strong><p>Coordina formaciones anti-phishing a escala para toda la plantilla</p></div></a>
+            <a href="dummy.html?p=Socios" class="mega-item" style="flex-direction:column;gap:10px;"><span class="mega-item-icon">&#129309;</span><div><strong>Implementación guiada</strong><p>Despliega campañas, seguimiento y refuerzo de hábitos seguros</p></div></a>
+            <a href="dummy.html?p=Socios" class="mega-item" style="flex-direction:column;gap:10px;"><span class="mega-item-icon">&#128104;&#8205;&#128187;</span><div><strong>Our Partners</strong><p>Explore our ecosystem of technology and channel partners</p></div></a>
+            <a href="dummy.html?p=Socios" class="mega-item" style="flex-direction:column;gap:10px;"><span class="mega-item-icon">&#128203;</span><div><strong>Implementar en tu organización</strong><p>Activa el programa interno y mejora tus métricas de seguridad</p></div></a>
+          </div>
+        </div>
+      </li>
+      <li class="nav-item">
+        <a href="dummy.html?p=Soporte">Soporte <span class="chevron">▾</span></a>
+        <div class="mega-menu" style="width:780px;transform:translateX(-60%);flex-direction:column;">
+          <h4 style="font-size:0.72rem;font-weight:800;color:#1e88e5;letter-spacing:0.07em;text-transform:uppercase;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #f1f5f9;">Soporte</h4>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;">
+            <a href="dummy.html?p=Soporte" class="mega-item"><span class="mega-item-icon">&#128188;</span><div><strong>Servicios profesionales</strong><p>Asesoramiento estratégico y servicios gestionados para acelerar el impacto</p></div></a>
+            <a href="dummy.html?p=Soporte" class="mega-item"><span class="mega-item-icon">&#9989;</span><div><strong>Éxito del cliente</strong><p>Asociación dedicada para impulsar la adopción y los resultados</p></div></a>
+            <a href="dummy.html?p=Soporte" class="mega-item"><span class="mega-item-icon">&#128274;</span><div><strong>Centro de confianza</strong><p>Información sobre seguridad, privacidad y transparencia en materia de cumplimiento</p></div></a>
+            <a href="dummy.html?p=Soporte" class="mega-item"><span class="mega-item-icon">&#10067;</span><div><strong>PREGUNTAS MÁS FRECUENTES</strong><p>Respuestas a preguntas frecuentes sobre productos y programas</p></div></a>
+            <a href="dummy.html?p=Soporte" class="mega-item"><span class="mega-item-icon">&#128218;</span><div><strong>Centro de ayuda</strong><p>Documentación del producto, guías y recursos de soporte técnico</p></div></a>
+            <a href="dummy.html?p=Soporte" class="mega-item"><span class="mega-item-icon">&#9855;</span><div><strong>Declaración de accesibilidad</strong><p>Nuestro compromiso con las experiencias digitales inclusivas y accesibles</p></div></a>
+          </div>
+        </div>
+      </li>
+      <li class="nav-item">
+        <a href="dummy.html?p=Empresa">Empresa <span class="chevron">▾</span></a>
+        <div class="mega-menu" style="width:780px;transform:translateX(-70%);flex-direction:column;">
+          <h4 style="font-size:0.72rem;font-weight:800;color:#1e88e5;letter-spacing:0.07em;text-transform:uppercase;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #f1f5f9;">Empresa</h4>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;">
+            <a href="dummy.html?p=Empresa" class="mega-item"><span class="mega-item-icon">&#128737;&#65039;</span><div><strong>Acerca de nosotros</strong><p>Transformación de la creación y la seguridad del software</p></div></a>
+            <a href="dummy.html?p=Empresa" class="mega-item"><span class="mega-item-icon">&#128101;</span><div><strong>Nuestros clientes</strong><p>Descubra cómo las organizaciones reducen incidentes de phishing con formación continua</p></div></a>
+            <a href="dummy.html?p=Empresa" class="mega-item"><span class="mega-item-icon">&#128240;</span><div><strong>Sala de prensa</strong><p>Anuncios y menciones de la empresa</p></div></a>
+            <a href="dummy.html?p=Empresa" class="mega-item"><span class="mega-item-icon">&#128188;</span><div><strong>Carreras</strong><p>Únete a Team Awesome</p></div></a>
+          </div>
+        </div>
+      </li>
+    </ul>
+    <div class="nav-actions">
+      <button class="lang-btn">ES <span class="chevron">▾</span></button>
+      <a href="login.html" class="btn-login" style="text-decoration:none;display:inline-flex;align-items:center;">INICIAR SESIÓN</a>
+      <a href="plataforma.html" class="btn-start" style="text-decoration:none;display:inline-flex;align-items:center;">EMPEZAR</a>
+    </div>
+  </nav>
+
+  <!-- TICKER -->
+  <div class="ticker-wrap">
+    <div class="ticker-track">
+      <span class="ticker-item">Verizon</span><span class="ticker-item">fiserv</span>
+      <span class="ticker-item">Telstra</span><span class="ticker-item">HSBC</span>
+      <span class="ticker-item">Serio</span><span class="ticker-item">Discover</span>
+      <span class="ticker-item">BNP Paribas</span><span class="ticker-item">ING</span>
+      <span class="ticker-item">Accenture</span><span class="ticker-item">Capgemini</span>
+      <span class="ticker-item">Deutsche Bank</span><span class="ticker-item">Santander</span>
+      <!-- duplicate for seamless loop -->
+      <span class="ticker-item">Verizon</span><span class="ticker-item">fiserv</span>
+      <span class="ticker-item">Telstra</span><span class="ticker-item">HSBC</span>
+      <span class="ticker-item">Serio</span><span class="ticker-item">Discover</span>
+      <span class="ticker-item">BNP Paribas</span><span class="ticker-item">ING</span>
+      <span class="ticker-item">Accenture</span><span class="ticker-item">Capgemini</span>
+      <span class="ticker-item">Deutsche Bank</span><span class="ticker-item">Santander</span>
+    </div>
+  </div>
+
+  <!-- HERO SPLIT -->
+  <div class="hero-split">
+    <div class="hero-split-text">
+      <p class="label-tag">Observabilidad de IA</p>
+      <h2 class="section-h2">La IA está escribiendo código. Sus controles de seguridad siguen rezagados.</h2>
+      <ul class="checklist">
+        <li>El 63% de los commits en equipos modernos contienen al menos una línea generada por IA</li>
+        <li>Menos del 12% de las organizaciones audita activamente el código escrito por modelos</li>
+        <li>Los patrones de vulnerabilidad IA difieren de los humanos: las herramientas tradicionales los pasan por alto</li>
+        <li>Sin trazabilidad, cada release es una caja negra de riesgo acumulado</li>
+      </ul>
+      <p style="font-size:0.85rem;color:#475569;line-height:1.65;max-width:440px;">
+        La capacidad de los equipos de seguridad de revisar manualmente el código ya no escala al ritmo al que la IA lo genera. El sistema de detección debe operar en el momento en que se introduce el código.
+      </p>
+    </div>
+    <div class="hero-split-visual">
+      <div class="chart-label">Origen del código por sprint · Q2 2026</div>
+      <div class="chart-bars">
+        <div class="chart-bar" style="height:45%;background:#1e88e5;"></div>
+        <div class="chart-bar" style="height:52%;background:#1e88e5;"></div>
+        <div class="chart-bar" style="height:60%;background:#ef4444;"></div>
+        <div class="chart-bar" style="height:55%;background:#ef4444;"></div>
+        <div class="chart-bar" style="height:70%;background:#ef4444;"></div>
+        <div class="chart-bar" style="height:63%;background:#f59e0b;"></div>
+        <div class="chart-bar" style="height:78%;background:#ef4444;"></div>
+        <div class="chart-bar" style="height:82%;background:#ef4444;"></div>
+        <div class="chart-bar" style="height:74%;background:#22c55e;"></div>
+        <div class="chart-bar" style="height:68%;background:#22c55e;"></div>
+      </div>
+      <div class="chart-legend">
+        <span class="dot-blue">Humano revisado</span>
+        <span class="dot-red">IA sin auditar</span>
+        <span class="dot-green">IA auditado</span>
+        <span class="dot-amber">Mixto</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- QUOTE + STEPS -->
+  <div class="quote-section">
+    <div class="quote-inner">
+      <blockquote>
+        "El desarrollador moderno delega en la IA partes del código. La formación refuerza las habilidades de los humanos para mantener ninguno de los dos lugares de seguridad en un momento del compromiso."
+      </blockquote>
+      <div class="step-list">
+        <div class="step-item">
+          <span class="step-num">1</span>
+          <div>
+            <strong>Descubrir</strong>
+            <p>Identifica qué herramientas IA usa cada desarrollador y qué proporción del código generan.</p>
+          </div>
+        </div>
+        <div class="step-item">
+          <span class="step-num">2</span>
+          <div>
+            <strong>Observar</strong>
+            <p>Monitoriza patrones de vulnerabilidad en tiempo real a medida que el código entra al repositorio.</p>
+          </div>
+        </div>
+        <div class="step-item">
+          <span class="step-num">3</span>
+          <div>
+            <strong>Correlacionar</strong>
+            <p>Asocia cada vulnerabilidad con su modelo de origen, autor y contexto de negocio.</p>
+          </div>
+        </div>
+        <div class="step-item">
+          <span class="step-num">4</span>
+          <div>
+            <strong>Remediar</strong>
+            <p>Ofrece al desarrollador formación contextual y corrección guiada antes del merge.</p>
+          </div>
+        </div>
+        <div class="step-item">
+          <span class="step-num">5</span>
+          <div>
+            <strong>Mejorar</strong>
+            <p>Cierra el ciclo con métricas de reducción de deuda de seguridad por sprint y por equipo.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ENGINE SECTION -->
+  <div class="engine-section">
+    <div class="engine-inner">
+      <div class="engine-text">
+        <p class="label-tag">Proteccion frente al phishing</p>
+        <h2 class="section-h2">Motor de entrenamiento y medición anti-phishing</h2>
+        <p class="section-lead">
+          Establece políticas de uso de modelos, define umbrales de riesgo aceptables y aplica controles automatizados en cada commit, sin ralentizar al equipo de desarrollo.
+        </p>
+        <a href="dummy.html?p=Demo" class="btn-engine">PANEL DE APRENDIZAJE &#8594;</a>
+      </div>
+      <div class="engine-pipeline">
+        <div class="pipeline-step">
+          <span class="ps-icon">📝</span>
+          <div><strong>Commit detectado</strong><span>Push al repositorio</span></div>
+        </div>
+        <div class="pipeline-connector"></div>
+        <div class="pipeline-step">
+          <span class="ps-icon">🔍</span>
+          <div><strong>Análisis de riesgo</strong><span>Patrones IA evaluados</span></div>
+        </div>
+        <div class="pipeline-connector"></div>
+        <div class="pipeline-step">
+          <span class="ps-icon">⚖️</span>
+          <div><strong>Política aplicada</strong><span>Reglas de gobernanza</span></div>
+        </div>
+        <div class="pipeline-connector"></div>
+        <div class="pipeline-step">
+          <span class="ps-icon">✅</span>
+          <div><strong>Aprobado / Bloqueado</strong><span>Feedback al dev</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- KPIs -->
+  <div class="kpi-section">
+    <div class="kpi-inner">
+      <p class="label-tag">Resultados y casos de uso</p>
+      <h2 class="section-h2">Prevenga el riesgo. Demuestre el control. Envía más rápido.</h2>
+      <div class="kpi-grid">
+        <div class="kpi-card"><div class="kv">50%+</div><div class="kl">Reducción de vulnerabilidades introducidas por desarrolladores</div></div>
+        <div class="kpi-card"><div class="kv">82%</div><div class="kl">De los equipos reducen la deuda de seguridad en el primer trimestre</div></div>
+        <div class="kpi-card"><div class="kv">100%</div><div class="kl">Trazabilidad del código generado por modelos de IA</div></div>
+        <div class="kpi-card"><div class="kv">IA ✓</div><div class="kl">Confirmación automática del origen del código en cada release</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FEATURE CARDS -->
+  <div class="cards-wrap">
+    <div class="cards-inner">
+      <p class="label-tag">Aplicación en tiempo real</p>
+      <h2 class="section-h2">Aplicación en tiempo real al momento de la confirmación</h2>
+      <div class="feature-grid">
+        <div class="feature-card">
+          <div class="feature-card-img">🧠</div>
+          <div class="feature-card-body">
+            <span class="tag">Desarrolladores</span>
+            <strong>Descubrimiento e inteligencia para desarrolladores</strong>
+            <p>Visibilidad completa de qué modelos de IA utiliza cada miembro del equipo y qué riesgo introduce cada uno.</p>
+          </div>
+        </div>
+        <div class="feature-card">
+          <div class="feature-card-img">🔗</div>
+          <div class="feature-card-body">
+            <span class="tag">Trazabilidad</span>
+            <strong>Trazabilidad de resultados y herramientas de IA</strong>
+            <p>Asocia cada línea de código con su modelo generador, su autor y el contexto del sprint en el que fue introducida.</p>
+          </div>
+        </div>
+        <div class="feature-card">
+          <div class="feature-card-img">📊</div>
+          <div class="feature-card-body">
+            <span class="tag">Comparativa</span>
+            <strong>Exclusión comparativa de seguridad de LLM</strong>
+            <p>Compara el perfil de riesgo de distintos modelos LLM y excluye automáticamente aquellos que superen el umbral configurado.</p>
+          </div>
+        </div>
+        <div class="feature-card">
+          <div class="feature-card-img">⚠️</div>
+          <div class="feature-card-body">
+            <span class="tag">Gobernanza</span>
+            <strong>Riesgo humano y cumplimiento a nivel de cada interacción</strong>
+            <p>Evalúa el riesgo de cada commit antes del merge y aplica las políticas definidas por el equipo de seguridad.</p>
+          </div>
+        </div>
+        <div class="feature-card">
+          <div class="feature-card-img">🔧</div>
+          <div class="feature-card-body">
+            <span class="tag">Remediación</span>
+            <strong>Remediación adaptativa de riesgos</strong>
+            <p>Genera automáticamente guías de corrección contextualizadas para cada vulnerabilidad detectada en el código IA.</p>
+          </div>
+        </div>
+        <div class="feature-card">
+          <div class="feature-card-img">📈</div>
+          <div class="feature-card-body">
+            <span class="tag">Métricas</span>
+            <strong>Dashboards ejecutivos de riesgo acumulado</strong>
+            <p>Informes por equipo, repositorio y sprint que facilitan la conversación entre desarrollo, seguridad y liderazgo.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <p>© 2026 PhishShield Academy · Todos los derechos reservados</p>
+  </footer>
+
+  <script>
+    var navbar = document.getElementById('navbar');
+    window.addEventListener('scroll', function () {
+      navbar.classList.toggle('scrolled', window.scrollY > 10);
+    });
+  </script>
+</body>
+</html>
+
+
+

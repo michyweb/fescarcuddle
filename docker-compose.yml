@@ -110,7 +110,7 @@ services:
 
   example-page:
     build:
-      context: ./example-page
+      context: ./example-page-2
       dockerfile: Dockerfile
     container_name: example-page
     networks:
